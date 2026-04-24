@@ -55,6 +55,11 @@ body {
   justify-items: end;
 }
 
+.lang-switcher {
+  display: flex;
+  gap: 8px;
+}
+
 .eyebrow,
 .hint,
 .legend,
@@ -87,6 +92,17 @@ h2 {
   color: var(--accent);
   font-size: 0.95rem;
   line-height: 1.25;
+  white-space: pre-wrap;
+}
+
+.map-marker-x {
+  color: #e25555;
+  font-weight: 700;
+}
+
+.map-marker-o {
+  color: #5aa7ff;
+  font-weight: 700;
 }
 
 .map-x {
@@ -144,6 +160,16 @@ button.ghost {
   width: auto;
   min-width: 120px;
   background: transparent;
+}
+
+.lang-switcher button {
+  min-width: 72px;
+  text-align: center;
+}
+
+.lang-switcher button.active {
+  background: rgba(227, 155, 68, 0.22);
+  border-color: rgba(227, 155, 68, 0.75);
 }
 
 button:disabled {

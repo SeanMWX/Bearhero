@@ -1,35 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ initial_state.ui.lang }}">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Beahero</title>
+    <title>{{ initial_state.ui.page_title }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   </head>
   <body>
     <main class="shell">
       <section class="panel hero">
         <div>
-          <p class="eyebrow">Beahero</p>
+          <p id="eyebrow" class="eyebrow">{{ initial_state.ui.eyebrow }}</p>
           <h1 id="room-title"></h1>
           <p id="room-description" class="lede"></p>
           <p id="room-hint" class="hint"></p>
         </div>
         <div class="hero-actions">
-          <button id="restart-button" class="ghost" type="button">Restart</button>
+          <div id="lang-switcher" class="lang-switcher" aria-label="Language switcher">
+            <button id="lang-en-button" class="ghost" type="button" data-lang="en">{{ initial_state.ui.lang_en }}</button>
+            <button id="lang-zh-button" class="ghost" type="button" data-lang="zh">{{ initial_state.ui.lang_zh }}</button>
+          </div>
+          <button id="restart-button" class="ghost" type="button">{{ initial_state.ui.restart }}</button>
           <p id="status-note" class="status-note"></p>
         </div>
       </section>
 
       <section class="grid">
         <article class="panel">
-          <h2>Map</h2>
+          <h2 id="map-heading">{{ initial_state.ui.map_heading }}</h2>
           <pre id="map-text" class="map"></pre>
-          <p class="legend">`X` is your current location. `O` marks places you have visited.</p>
+          <p id="map-legend" class="legend">{{ initial_state.ui.map_legend }}</p>
         </article>
 
         <article class="panel">
-          <h2>Status</h2>
+          <h2 id="status-heading">{{ initial_state.ui.status_heading }}</h2>
           <ul id="stats-list" class="stats"></ul>
           <p id="win-note" class="win" hidden></p>
         </article>
@@ -42,14 +46,14 @@
         </article>
 
         <article class="panel">
-          <h2>Log</h2>
+          <h2 id="log-heading">{{ initial_state.ui.log_heading }}</h2>
           <ul id="log-list" class="log"></ul>
         </article>
       </section>
 
       <noscript>
         <section class="panel">
-          <p>JavaScript is required for the no-reload interface.</p>
+          <p>{{ initial_state.ui.noscript }}</p>
         </section>
       </noscript>
     </main>

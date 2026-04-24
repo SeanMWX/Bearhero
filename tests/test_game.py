@@ -1,6 +1,6 @@
 import unittest
 
-from game import apply_action, available_actions, new_game_state
+from game import apply_action, available_actions, enemy_name, new_game_state, present_log
 
 
 class GameStateTests(unittest.TestCase):
@@ -28,7 +28,7 @@ class GameStateTests(unittest.TestCase):
         apply_action(state, "move:gate")
 
         self.assertEqual(state["location"], "forest")
-        self.assertIn("too deep", state["log"][-1])
+        self.assertIn("too deep", present_log(state, "en")[0])
 
     def test_beast_encounter_can_be_won(self) -> None:
         state = new_game_state()
@@ -63,7 +63,7 @@ class GameStateTests(unittest.TestCase):
         apply_action(state, "open_gate")
 
         self.assertIsNotNone(state["encounter"])
-        self.assertEqual(state["encounter"]["name"], "Gate Warden")
+        self.assertEqual(enemy_name(state["encounter"], "en"), "Gate Warden")
         self.assertEqual(state["scrap"], 0)
 
     def test_player_can_die_in_combat(self) -> None:
@@ -112,6 +112,16 @@ class GameStateTests(unittest.TestCase):
         self.assertEqual(restarted["location"], "hut")
         self.assertEqual(restarted["health"], 10)
         self.assertFalse(restarted["flags"]["game_over"])
+
+    def test_actions_and_logs_can_be_localized_to_chinese(self) -> None:
+        state = new_game_state()
+        apply_action(state, "move:path")
+
+        action_labels = {item["label"] for item in available_actions(state, "zh")}
+        log_lines = present_log(state, "zh")
+
+        self.assertIn("前往林缘", action_labels)
+        self.assertTrue(any("旧径" in line for line in log_lines))
 
 
 if __name__ == "__main__":

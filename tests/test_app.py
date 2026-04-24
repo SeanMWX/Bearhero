@@ -28,6 +28,7 @@ class AppRouteTests(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload["room"]["name"], "Old Path")
         self.assertIn("move:forest", {item["key"] for item in payload["actions"]})
+        self.assertIn('class="map-marker-x"', payload["map_html"])
 
     def test_api_restart_resets_progress(self) -> None:
         self.client.get("/")
@@ -37,6 +38,16 @@ class AppRouteTests(unittest.TestCase):
         payload = response.get_json()
         self.assertEqual(payload["room"]["name"], "Dark Hut")
         self.assertEqual(payload["stats"][0]["value"], "1")
+
+    def test_api_lang_switches_response_language_without_reload(self) -> None:
+        self.client.get("/")
+        response = self.client.post("/api/lang", json={"lang": "zh"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["ui"]["lang"], "zh")
+        self.assertEqual(payload["room"]["name"], "黑屋")
+        self.assertEqual(payload["actions"][0]["label"], "添火")
 
 
 if __name__ == "__main__":
