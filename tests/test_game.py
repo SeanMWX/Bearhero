@@ -1,7 +1,7 @@
 import unittest
 import random
 
-from game import apply_action, available_actions, current_room, enemy_name, new_game_state, present_log, render_map_html
+from game import apply_action, available_actions, build_ruin_route, current_room, enemy_name, new_game_state, present_log, render_map_html
 
 
 class GameStateTests(unittest.TestCase):
@@ -200,6 +200,30 @@ class GameStateTests(unittest.TestCase):
         self.assertIsNotNone(state["encounter"])
         self.assertEqual(state["encounter"]["id"], "beast")
         self.assertEqual(state["encounter"]["hp"], 7)
+
+    def test_ruin_route_generation_avoids_adjacent_duplicates(self) -> None:
+        route = build_ruin_route(1337)
+
+        self.assertEqual(len(route), 3)
+        for left, right in zip(route, route[1:]):
+            self.assertNotEqual(left, right)
+
+    def test_ruin_loot_rewards_are_deterministic_for_seed_and_depth(self) -> None:
+        state_a = new_game_state()
+        state_b = new_game_state()
+
+        for state in (state_a, state_b):
+            state["location"] = "ruin"
+            state["flags"]["gate_open"] = True
+            state["run"]["seed"] = 4242
+            state["run"]["depth"] = 1
+            state["run"]["ruin_route"] = ["forge", "camp", "lair"]
+
+        apply_action(state_a, "loot_ruin")
+        apply_action(state_b, "loot_ruin")
+
+        self.assertEqual(state_a["scrap"], state_b["scrap"])
+        self.assertEqual(state_a["herbs"], state_b["herbs"])
 
 
 if __name__ == "__main__":

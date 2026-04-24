@@ -216,7 +216,7 @@ RUIN_CHAMBERS = {
             "zh": "你可以搜索房间、继续深入，或者趁退路还清楚时折返。",
         },
         "action": "loot_ruin",
-        "reward": {"scrap": 1, "herbs": 1},
+        "reward_table": {"scrap": (1, 2), "herbs": (0, 1)},
         "message_key": "loot_ruin",
     },
     "camp": {
@@ -233,6 +233,21 @@ RUIN_CHAMBERS = {
         "action": "camp_ruin",
         "message_key": "camp_ruin",
     },
+    "forge": {
+        "name": {"en": "Old Forge", "zh": "旧熔炉"},
+        "title": {"en": "A forge chamber still smelling faintly of hot iron", "zh": "一间还残留着铁腥味的旧熔炉室"},
+        "description": {
+            "en": "Collapsed racks and shattered molds litter the floor, but good scrap still hides in the slag.",
+            "zh": "坍塌的支架和碎模具铺了一地，但渣堆里仍旧埋着不错的废料。",
+        },
+        "action_text": {
+            "en": "This room favors anyone willing to dig with dirty hands.",
+            "zh": "这里只偏爱那些肯把手伸进灰里的拾荒者。",
+        },
+        "action": "loot_ruin",
+        "reward_table": {"scrap": (2, 3)},
+        "message_key": "loot_ruin",
+    },
     "lair": {
         "name": {"en": "Shadow Lair", "zh": "阴影巢穴"},
         "title": {"en": "The dark here feels occupied", "zh": "这里的黑暗像是被什么东西占住了"},
@@ -247,6 +262,20 @@ RUIN_CHAMBERS = {
         "action": "fight_ruin",
         "enemy": "beast",
         "message_key": "fight_ruin",
+    },
+    "sanctuary": {
+        "name": {"en": "Quiet Shrine", "zh": "寂静祠堂"},
+        "title": {"en": "A shrine chamber where the dust lies strangely still", "zh": "一间连灰尘都显得过于安静的祠堂"},
+        "description": {
+            "en": "The walls here keep the noise down. Even fear settles differently in this chamber.",
+            "zh": "这里的墙壁压低了一切声音，就连恐惧都像被放慢了一拍。",
+        },
+        "action_text": {
+            "en": "If you need one calm breath before the next floor, this is the place for it.",
+            "zh": "如果你想在下层之前换一口稳气，这里正适合停一下。",
+        },
+        "action": "camp_ruin",
+        "message_key": "camp_ruin",
     },
 }
 
@@ -526,12 +555,28 @@ def crafted_equipment_actions(state: dict, lang: str) -> list[dict]:
 def build_ruin_route(seed: int) -> list[str]:
     chamber_ids = sorted(RUIN_CHAMBERS)
     rng = random.Random(seed)
-    return [rng.choice(chamber_ids) for _ in range(ROGUELIKE_RUN_CONFIG["depth_goal"])]
+    route = []
+    for _ in range(ROGUELIKE_RUN_CONFIG["depth_goal"]):
+        choices = [chamber_id for chamber_id in chamber_ids if not route or chamber_id != route[-1]]
+        route.append(rng.choice(choices))
+    return route
 
 
 def current_ruin_chamber(state: dict) -> dict:
     chamber_id = state["run"]["ruin_route"][state["run"]["depth"] - 1]
     return RUIN_CHAMBERS[chamber_id]
+
+
+def resolve_chamber_reward(state: dict, chamber: dict) -> dict[str, int]:
+    reward_table = chamber.get("reward_table", {})
+    if not reward_table:
+        return {}
+    rng = random.Random(f"{state['run']['seed']}:{state['run']['depth']}:{chamber['name']['en']}")
+    resolved = {}
+    for resource, bounds in reward_table.items():
+        low, high = bounds
+        resolved[resource] = rng.randint(low, high)
+    return resolved
 
 
 def localized_param(kind: str, value: object) -> dict[str, object]:
@@ -830,7 +875,7 @@ def apply_action(state: dict, action: str) -> dict:
         chamber = current_ruin_chamber(state)
         current_depth = state["run"]["depth"]
         if action == "loot_ruin":
-            reward = chamber.get("reward", {})
+            reward = resolve_chamber_reward(state, chamber)
             state["scrap"] += reward.get("scrap", 0) + gear_bonus(state, "loot")
             state["herbs"] += reward.get("herbs", 0)
             add_log(state, chamber["message_key"])
