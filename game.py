@@ -660,7 +660,7 @@ def render_map_html(state: dict) -> str:
     for row_index, row in enumerate(lines):
         parts = []
         for col_index, char in enumerate(row):
-            if (row_index, col_index) == (row_index, col_index) and (row_index, col_index) in markers:
+            if (row_index, col_index) in markers:
                 css_class = "map-marker-x" if markers[(row_index, col_index)] == "X" else "map-marker-o"
                 parts.append(f'<span class="{css_class}">{escape(char)}</span>')
             else:

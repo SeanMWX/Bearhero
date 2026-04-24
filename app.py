@@ -11,7 +11,6 @@ from game import (
     new_game_state,
     pick_lang,
     present_log,
-    render_map,
     render_map_html,
     stats,
     ui_text,
@@ -41,7 +40,6 @@ def present_state(state: dict, lang: str | None = None) -> dict:
     return {
         "room": current_room(state, lang),
         "actions": available_actions(state, lang),
-        "map_text": render_map(state),
         "map_html": render_map_html(state),
         "log": present_log(state, lang),
         "stats": [{"label": label, "value": str(value)} for label, value in stats(state, lang)],
