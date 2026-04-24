@@ -1,6 +1,6 @@
-# Beahero
+# Bearhero
 
-Beahero is a minimal Python web game inspired by the slow-burn pacing of A Dark Room.
+Bearhero is a minimal Python web game inspired by the slow-burn pacing of A Dark Room.
 
 This first prototype focuses on:
 

@@ -104,33 +104,53 @@ CONNECTIONS = {
 }
 
 
-MAP_LAYOUT = [
-    "  -----------             -----------  ",
-    "  |  Dark   |-------------|  Forest |  ",
-    "  |   Hut   |             |   Edge  |  ",
-    "  -----------             -----------  ",
-    "        |                        |      ",
-    "        |                        |      ",
-    "  -----------             -----------  ",
-    "  |   Old   |-------------|  Rust   |  ",
-    "  |   Path  |             |  Gate   |  ",
-    "  -----------             -----------  ",
-    "        |                               ",
-    "        |                               ",
-    "  -----------             -----------  ",
-    "  |   Dry   |             |  Broken |  ",
-    "  |   Well  |             |   Hall  |  ",
-    "  -----------             -----------  ",
-]
+MAP_LAYOUTS = {
+    "en": [
+        "  -----------             -----------  ",
+        "  | Dark Hut|-------------|Forest Edg|  ",
+        "  |         |             |         |  ",
+        "  -----------             -----------  ",
+        "        |                        |      ",
+        "        |                        |      ",
+        "  -----------             -----------  ",
+        "  | Old Path|-------------|Rust Gate|  ",
+        "  |         |             |         |  ",
+        "  -----------             -----------  ",
+        "        |                               ",
+        "        |                               ",
+        "  -----------             -----------  ",
+        "  | Dry Well|             |BrokenHal|  ",
+        "  |         |             |         |  ",
+        "  -----------             -----------  ",
+    ],
+    "zh": [
+        "  -----------             -----------  ",
+        "  |  黑屋   |-------------|  林缘   |  ",
+        "  |         |             |         |  ",
+        "  -----------             -----------  ",
+        "        |                        |      ",
+        "        |                        |      ",
+        "  -----------             -----------  ",
+        "  |  旧径   |-------------|  锈门   |  ",
+        "  |         |             |         |  ",
+        "  -----------             -----------  ",
+        "        |                               ",
+        "        |                               ",
+        "  -----------             -----------  ",
+        "  |  枯井   |             |  破厅   |  ",
+        "  |         |             |         |  ",
+        "  -----------             -----------  ",
+    ],
+}
 
 
 ROOM_MARKERS = {
-    "hut": (1, 5),
-    "forest": (1, 33),
-    "path": (7, 5),
-    "gate": (7, 33),
-    "well": (13, 5),
-    "ruin": (13, 33),
+    "hut": (2, 7),
+    "forest": (2, 35),
+    "path": (8, 7),
+    "gate": (8, 35),
+    "well": (14, 7),
+    "ruin": (14, 35),
 }
 
 
@@ -308,15 +328,15 @@ MESSAGES = {
         "zh": "你在石缝之间翻出几枚旧钉子和一只短铁钩。",
     },
     "claim_banner": {
-        "en": "You lift the fallen banner from the dust. Beahero has a beginning.",
-        "zh": "你从尘土中举起倒下的旗帜。Beahero 的故事开始了。",
+        "en": "You lift the fallen banner from the dust. Bearhero has a beginning.",
+        "zh": "你从尘土中举起倒下的旗帜。Bearhero 的故事开始了。",
     },
 }
 
 
 UI_TEXT = {
-    "page_title": {"en": "Beahero", "zh": "Beahero"},
-    "eyebrow": {"en": "Beahero", "zh": "Beahero"},
+    "page_title": {"en": "Bearhero", "zh": "Bearhero"},
+    "eyebrow": {"en": "Bearhero", "zh": "Bearhero"},
     "restart": {"en": "Restart", "zh": "重新开始"},
     "map_heading": {"en": "Map", "zh": "地图"},
     "map_legend": {
@@ -534,6 +554,9 @@ def apply_action(state: dict, action: str) -> dict:
     if action == "restart":
         return new_game_state()
 
+    if action not in {item["key"] for item in available_actions(state)}:
+        return state
+
     if state["flags"]["game_over"]:
         return state
 
@@ -664,8 +687,8 @@ def apply_action(state: dict, action: str) -> dict:
     return state
 
 
-def render_map(state: dict) -> str:
-    lines = [list(row) for row in MAP_LAYOUT]
+def render_map(state: dict, lang: str = "en") -> str:
+    lines = [list(row) for row in MAP_LAYOUTS[pick_lang(lang)]]
     for room_id in state["visited"]:
         row, col = ROOM_MARKERS[room_id]
         marker = "X" if room_id == state["location"] else "O"
@@ -673,8 +696,8 @@ def render_map(state: dict) -> str:
     return "\n".join("".join(row) for row in lines)
 
 
-def render_map_html(state: dict) -> str:
-    lines = [list(row) for row in MAP_LAYOUT]
+def render_map_html(state: dict, lang: str = "en") -> str:
+    lines = [list(row) for row in MAP_LAYOUTS[pick_lang(lang)]]
     markers = {}
     for room_id in state["visited"]:
         row, col = ROOM_MARKERS[room_id]

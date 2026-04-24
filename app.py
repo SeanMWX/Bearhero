@@ -40,7 +40,7 @@ def present_state(state: dict, lang: str | None = None) -> dict:
     return {
         "room": current_room(state, lang),
         "actions": available_actions(state, lang),
-        "map_html": render_map_html(state),
+        "map_html": render_map_html(state, lang),
         "log": present_log(state, lang),
         "stats": [{"label": label, "value": str(value)} for label, value in stats(state, lang)],
         "won": state["flags"]["won"],

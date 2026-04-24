@@ -1,6 +1,6 @@
 import unittest
 
-from game import apply_action, available_actions, enemy_name, new_game_state, present_log
+from game import apply_action, available_actions, enemy_name, new_game_state, present_log, render_map_html
 
 
 class GameStateTests(unittest.TestCase):
@@ -24,11 +24,13 @@ class GameStateTests(unittest.TestCase):
         state = new_game_state()
         state["location"] = "forest"
         state["fire"] = 1
+        initial_log = list(state["log"])
 
         apply_action(state, "move:gate")
 
+        self.assertNotIn("move:gate", {item["key"] for item in available_actions(state)})
         self.assertEqual(state["location"], "forest")
-        self.assertIn("too deep", present_log(state, "en")[0])
+        self.assertEqual(state["log"], initial_log)
 
     def test_beast_encounter_can_be_won(self) -> None:
         state = new_game_state()
@@ -122,6 +124,28 @@ class GameStateTests(unittest.TestCase):
 
         self.assertIn("前往林缘", action_labels)
         self.assertTrue(any("旧径" in line for line in log_lines))
+
+    def test_invalid_action_cannot_bypass_resource_or_progress_rules(self) -> None:
+        state = new_game_state()
+
+        apply_action(state, "craft_spear")
+        apply_action(state, "open_gate")
+        apply_action(state, "claim_banner")
+
+        self.assertEqual(state["scrap"], 0)
+        self.assertFalse(state["gear"]["spear"])
+        self.assertIsNone(state["encounter"])
+        self.assertFalse(state["flags"]["won"])
+
+    def test_map_html_is_localized_with_language(self) -> None:
+        state = new_game_state()
+
+        english_map = render_map_html(state, "en")
+        chinese_map = render_map_html(state, "zh")
+
+        self.assertIn("Forest", english_map)
+        self.assertIn("林缘", chinese_map)
+        self.assertNotIn("Forest", chinese_map)
 
 
 if __name__ == "__main__":
