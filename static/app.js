@@ -60,12 +60,16 @@ function renderLog(log) {
   }
 }
 
+function renderMap(mapText) {
+  elements.mapText.innerHTML = mapText.replaceAll("X", '<span class="map-x">X</span>').replaceAll("O", '<span class="map-o">O</span>');
+}
+
 function render(nextState) {
   state.data = nextState;
   elements.roomTitle.textContent = nextState.room.title;
   elements.roomDescription.textContent = nextState.room.description;
   elements.roomHint.textContent = nextState.room.action_text;
-  elements.mapText.textContent = nextState.map_text;
+  renderMap(nextState.map_text);
   elements.actionsHeading.textContent = nextState.won ? "Aftermath" : "Actions";
   renderStats(nextState.stats);
   renderActions(nextState.actions);

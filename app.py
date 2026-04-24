@@ -4,7 +4,18 @@ import os
 
 from flask import Flask, jsonify, redirect, render_template, request, session, url_for
 
-from game import apply_action, available_actions, current_room, new_game_state, render_map, stats
+from game import (
+    apply_action,
+    available_actions,
+    current_room,
+    new_game_state,
+    pick_lang,
+    present_log,
+    render_map,
+    render_map_html,
+    stats,
+    ui_text,
+)
 
 
 app = Flask(__name__)
@@ -19,21 +30,31 @@ def get_state() -> dict:
     return state
 
 
-def present_state(state: dict) -> dict:
+def get_lang() -> str:
+    lang = pick_lang(session.get("lang"))
+    session["lang"] = lang
+    return lang
+
+
+def present_state(state: dict, lang: str | None = None) -> dict:
+    lang = pick_lang(lang or get_lang())
     return {
-        "room": current_room(state),
-        "actions": available_actions(state),
+        "room": current_room(state, lang),
+        "actions": available_actions(state, lang),
         "map_text": render_map(state),
-        "log": list(reversed(state["log"])),
-        "stats": [{"label": label, "value": str(value)} for label, value in stats(state)],
+        "map_html": render_map_html(state),
+        "log": present_log(state, lang),
+        "stats": [{"label": label, "value": str(value)} for label, value in stats(state, lang)],
         "won": state["flags"]["won"],
         "game_over": state["flags"]["game_over"],
+        "ui": ui_text(lang),
     }
 
 
 @app.get("/")
 def index():
-    return render_template("index.html", initial_state=present_state(get_state()))
+    initial_state = present_state(get_state())
+    return render_template("index.html", initial_state=initial_state)
 
 
 @app.get("/api/state")
@@ -53,6 +74,14 @@ def api_action():
 def api_restart():
     session["game_state"] = new_game_state()
     return jsonify(present_state(session["game_state"]))
+
+
+@app.post("/api/lang")
+def api_lang():
+    payload = request.get_json(silent=True) or request.form
+    lang = pick_lang(payload.get("lang"))
+    session["lang"] = lang
+    return jsonify(present_state(get_state(), lang))
 
 
 @app.post("/action")

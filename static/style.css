@@ -89,6 +89,14 @@ h2 {
   line-height: 1.25;
 }
 
+.map-x {
+  color: red;
+}
+
+.map-o {
+  color: blue;
+}
+
 .stats,
 .log {
   list-style: none;
