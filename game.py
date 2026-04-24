@@ -678,6 +678,20 @@ def localize_action(key: str, label_key: str, lang: str) -> dict:
     return {"key": key, "label": text(ACTION_LABELS[label_key], lang)}
 
 
+def ruin_branch_label(state: dict, branch_index: int, lang: str) -> str:
+    next_depth = state["run"]["depth"]
+    chamber_id = state["run"]["ruin_branches"][next_depth - 1][branch_index]
+    chamber = RUIN_CHAMBERS[chamber_id]
+    tendency = {
+        "loot_ruin": {"en": "loot", "zh": "搜刮"},
+        "camp_ruin": {"en": "rest", "zh": "休整"},
+        "fight_ruin": {"en": "fight", "zh": "战斗"},
+    }[chamber["action"]]
+    if lang == "zh":
+        return f"{text(ACTION_LABELS['descend_left' if branch_index == 0 else 'descend_right'], lang)}：{text(chamber['name'], lang)}（{text(tendency, lang)}）"
+    return f"{text(ACTION_LABELS['descend_left' if branch_index == 0 else 'descend_right'], lang)}: {text(chamber['name'], lang)} ({text(tendency, lang)})"
+
+
 def available_actions(state: dict, lang: str = "en") -> list[dict]:
     lang = pick_lang(lang)
 
@@ -740,8 +754,8 @@ def available_actions(state: dict, lang: str = "en") -> list[dict]:
         if not cleared:
             actions.append(localize_action(chamber["action"], chamber["action"], lang))
         if cleared and current_depth < ROGUELIKE_RUN_CONFIG["depth_goal"]:
-            actions.append(localize_action("descend_left", "descend_left", lang))
-            actions.append(localize_action("descend_right", "descend_right", lang))
+            actions.append({"key": "descend_left", "label": ruin_branch_label(state, 0, lang)})
+            actions.append({"key": "descend_right", "label": ruin_branch_label(state, 1, lang)})
         elif not state["flags"]["won"]:
             actions.append(localize_action("claim_banner", "claim_banner", lang))
         actions.append(localize_action("move:gate", "move:gate:return", lang))

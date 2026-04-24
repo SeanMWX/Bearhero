@@ -223,7 +223,8 @@ class GameStateTests(unittest.TestCase):
             state["flags"]["gate_open"] = True
             state["run"]["seed"] = 4242
             state["run"]["depth"] = 1
-            state["run"]["ruin_route"] = ["forge", "camp", "lair"]
+            state["run"]["ruin_path"] = ["forge"]
+            state["run"]["ruin_branches"] = [("camp", "lair"), ("sanctuary", "storehouse")]
 
         apply_action(state_a, "loot_ruin")
         apply_action(state_b, "loot_ruin")
@@ -251,6 +252,36 @@ class GameStateTests(unittest.TestCase):
         self.assertEqual(state["run"]["depth"], 2)
         self.assertEqual(state["run"]["ruin_path"], ["storehouse", "forge"])
         self.assertEqual(current_room(state, "en")["name"], "Old Forge 2")
+
+    def test_ruin_branch_actions_include_preview_labels_in_english(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["ruin_path"] = ["storehouse"]
+        state["run"]["ruin_branches"] = [("camp", "lair"), ("forge", "sanctuary")]
+        state["run"]["cleared_depths"] = [1]
+
+        actions = {item["key"]: item["label"] for item in available_actions(state, "en")}
+
+        self.assertIn("Ash Camp", actions["descend_left"])
+        self.assertIn("rest", actions["descend_left"])
+        self.assertIn("Shadow Lair", actions["descend_right"])
+        self.assertIn("fight", actions["descend_right"])
+
+    def test_ruin_branch_actions_include_preview_labels_in_chinese(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["ruin_path"] = ["storehouse"]
+        state["run"]["ruin_branches"] = [("forge", "sanctuary"), ("camp", "lair")]
+        state["run"]["cleared_depths"] = [1]
+
+        actions = {item["key"]: item["label"] for item in available_actions(state, "zh")}
+
+        self.assertIn("旧熔炉", actions["descend_left"])
+        self.assertIn("搜刮", actions["descend_left"])
+        self.assertIn("寂静祠堂", actions["descend_right"])
+        self.assertIn("休整", actions["descend_right"])
 
 
 if __name__ == "__main__":
