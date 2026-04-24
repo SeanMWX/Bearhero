@@ -410,7 +410,9 @@ def resolve_params(lang: str, params: dict) -> dict:
     return resolved
 
 
-def render_message(entry: dict, lang: str) -> str:
+def render_message(entry: dict | str, lang: str) -> str:
+    if isinstance(entry, str):
+        return entry
     template = text(MESSAGES[entry["key"]], lang)
     return template.format(**resolve_params(lang, entry.get("params", {})))
 
@@ -745,4 +747,5 @@ def ui_text(lang: str) -> dict[str, str]:
 
 
 def present_log(state: dict, lang: str) -> list[str]:
-    return [render_message(entry, lang) for entry in reversed(state["log"])]
+    entries: list[dict | str] = state["log"]
+    return [render_message(entry, lang) for entry in reversed(entries)]
