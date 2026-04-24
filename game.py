@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from html import escape
+import random
 
 
 LANGUAGES = ("en", "zh")
@@ -21,6 +22,7 @@ def text(value: str | dict[str, str], lang: str) -> str:
 ROOMS = {
     "hut": {
         "name": {"en": "Dark Hut", "zh": "黑屋"},
+        "map_pos": (2, 2),
         "title": {"en": "A dark hut with a weak ember", "zh": "一间黑暗的小屋，炉中余烬微弱"},
         "description": {
             "en": "Wind pushes through the cracks. A cold ember waits in the stove.",
@@ -33,6 +35,7 @@ ROOMS = {
     },
     "path": {
         "name": {"en": "Old Path", "zh": "旧径"},
+        "map_pos": (2, 8),
         "title": {"en": "A narrow path cut into dead grass", "zh": "一条压入枯草中的狭窄小径"},
         "description": {
             "en": "A path runs between the hut and the deeper woods.",
@@ -45,6 +48,7 @@ ROOMS = {
     },
     "forest": {
         "name": {"en": "Forest Edge", "zh": "林缘"},
+        "map_pos": (28, 2),
         "title": {"en": "The treeline watches back", "zh": "树线之外，仿佛有什么正回望着你"},
         "description": {
             "en": "The forest edge is thick with brush and broken branches.",
@@ -57,6 +61,7 @@ ROOMS = {
     },
     "well": {
         "name": {"en": "Dry Well", "zh": "枯井"},
+        "map_pos": (2, 14),
         "title": {"en": "An old stone well stands open", "zh": "一口古老的石井敞开着"},
         "description": {
             "en": "The well is dry, but the stones around it hide useful scraps.",
@@ -69,6 +74,7 @@ ROOMS = {
     },
     "gate": {
         "name": {"en": "Rust Gate", "zh": "锈门"},
+        "map_pos": (28, 8),
         "title": {"en": "A rusted gate blocks the ruin road", "zh": "一扇锈蚀的大门挡住了通往废墟的路"},
         "description": {
             "en": "Beyond the gate lies a collapsed ruin. The lock is weak but stubborn.",
@@ -81,6 +87,7 @@ ROOMS = {
     },
     "ruin": {
         "name": {"en": "Broken Hall", "zh": "破厅"},
+        "map_pos": (28, 14),
         "title": {"en": "A ruin half-swallowed by roots", "zh": "一座被树根吞没大半的残破大厅"},
         "description": {
             "en": "Inside the ruin, scraps of old banners cling to the walls.",
@@ -104,53 +111,11 @@ CONNECTIONS = {
 }
 
 
-MAP_LAYOUTS = {
-    "en": [
-        "  -----------             -----------  ",
-        "  | Dark Hut|-------------|Forest Edg|  ",
-        "  |         |             |         |  ",
-        "  -----------             -----------  ",
-        "        |                        |      ",
-        "        |                        |      ",
-        "  -----------             -----------  ",
-        "  | Old Path|-------------|Rust Gate|  ",
-        "  |         |             |         |  ",
-        "  -----------             -----------  ",
-        "        |                               ",
-        "        |                               ",
-        "  -----------             -----------  ",
-        "  | Dry Well|             |BrokenHal|  ",
-        "  |         |             |         |  ",
-        "  -----------             -----------  ",
-    ],
-    "zh": [
-        "  -----------             -----------  ",
-        "  |  黑屋   |-------------|  林缘   |  ",
-        "  |         |             |         |  ",
-        "  -----------             -----------  ",
-        "        |                        |      ",
-        "        |                        |      ",
-        "  -----------             -----------  ",
-        "  |  旧径   |-------------|  锈门   |  ",
-        "  |         |             |         |  ",
-        "  -----------             -----------  ",
-        "        |                               ",
-        "        |                               ",
-        "  -----------             -----------  ",
-        "  |  枯井   |             |  破厅   |  ",
-        "  |         |             |         |  ",
-        "  -----------             -----------  ",
-    ],
-}
-
-
-ROOM_MARKERS = {
-    "hut": (2, 7),
-    "forest": (2, 35),
-    "path": (8, 7),
-    "gate": (8, 35),
-    "well": (14, 7),
-    "ruin": (14, 35),
+MAP_STYLE = {
+    "room_width": 11,
+    "room_height": 3,
+    "padding_x": 2,
+    "padding_y": 2,
 }
 
 
@@ -166,6 +131,8 @@ ACTION_LABELS = {
     "listen": {"en": "Listen to the wind", "zh": "倾听风声"},
     "craft_spear": {"en": "Forge a crude spear", "zh": "制作粗制长矛"},
     "craft_torch": {"en": "Bind a torch", "zh": "捆扎火把"},
+    "craft_coat": {"en": "Sew a padded coat", "zh": "缝制护身棉衣"},
+    "craft_charm": {"en": "Thread a scavenger charm", "zh": "串起拾荒护符"},
     "scavenge_path": {"en": "Search the roadside", "zh": "搜索路边"},
     "investigate_path": {"en": "Investigate the tracks", "zh": "调查痕迹"},
     "move:hut": {"en": "Return to the hut", "zh": "回到黑屋"},
@@ -186,9 +153,49 @@ ACTION_LABELS = {
 }
 
 
-GEAR_LABELS = {
-    "spear": {"en": "Spear", "zh": "长矛"},
-    "torch": {"en": "Torch", "zh": "火把"},
+EQUIPMENT_DEFS = {
+    "spear": {
+        "label": {"en": "Spear", "zh": "长矛"},
+        "craft_action": "craft_spear",
+        "craft_room": "hut",
+        "cost": {"scrap": 2},
+        "message_key": "craft_spear",
+        "bonuses": {"attack": 1},
+    },
+    "torch": {
+        "label": {"en": "Torch", "zh": "火把"},
+        "craft_action": "craft_torch",
+        "craft_room": "hut",
+        "cost": {"scrap": 1, "wood": 1},
+        "message_key": "craft_torch",
+        "bonuses": {"fire_cap": 1},
+    },
+    "coat": {
+        "label": {"en": "Padded Coat", "zh": "护身棉衣"},
+        "craft_action": "craft_coat",
+        "craft_room": "hut",
+        "cost": {"scrap": 1, "wood": 2},
+        "message_key": "craft_coat",
+        "bonuses": {"defense": 1},
+    },
+    "charm": {
+        "label": {"en": "Scavenger Charm", "zh": "拾荒护符"},
+        "craft_action": "craft_charm",
+        "craft_room": "well",
+        "cost": {"scrap": 1, "herbs": 1},
+        "message_key": "craft_charm",
+        "bonuses": {"loot": 1},
+    },
+}
+
+
+ROGUELIKE_RUN_CONFIG = {
+    "mode": "surface-expedition",
+    "seed_min": 1000,
+    "seed_max": 9999,
+    "starting_depth": 1,
+    "threat_per_day": 1,
+    "depth_goal": 3,
 }
 
 
@@ -311,6 +318,14 @@ MESSAGES = {
         "en": "You bind a torch and catch it from the stove. The flame steadies your nerve.",
         "zh": "你扎好火把并从炉火中引燃，跳动的火焰让你镇定下来。",
     },
+    "craft_coat": {
+        "en": "You stitch together a padded coat from scrap cloth and old cord.",
+        "zh": "你用旧布和绳线缝出一件护身棉衣，至少能替你挡下一些擦伤。",
+    },
+    "craft_charm": {
+        "en": "You string wire, nails, and herb stems into a scavenger charm for luck.",
+        "zh": "你把铁丝、旧钉和草茎串成一枚拾荒护符，给自己添一点运气。",
+    },
     "gather_wood": {
         "en": "You drag back a bundle of wet branches. It will do.",
         "zh": "你拖回一捆潮湿树枝，勉强还能用。",
@@ -372,10 +387,8 @@ DEFAULT_STATE = {
     "max_health": 10,
     "day": 1,
     "visited": ["hut"],
-    "gear": {
-        "spear": False,
-        "torch": False,
-    },
+    "gear": {},
+    "run": {},
     "flags": {
         "heard_whispers": False,
         "gate_open": False,
@@ -391,7 +404,15 @@ DEFAULT_STATE = {
 
 
 def new_game_state() -> dict:
-    return deepcopy(DEFAULT_STATE)
+    state = deepcopy(DEFAULT_STATE)
+    state["gear"] = {gear_id: False for gear_id in EQUIPMENT_DEFS}
+    state["run"] = {
+        "mode": ROGUELIKE_RUN_CONFIG["mode"],
+        "seed": random.randint(ROGUELIKE_RUN_CONFIG["seed_min"], ROGUELIKE_RUN_CONFIG["seed_max"]),
+        "depth": ROGUELIKE_RUN_CONFIG["starting_depth"],
+        "threat": 1,
+    }
+    return state
 
 
 def room_name(room_id: str, lang: str) -> str:
@@ -404,6 +425,31 @@ def room_title(room_id: str, lang: str) -> str:
 
 def enemy_name(enemy: dict, lang: str) -> str:
     return text(enemy["name"], lang)
+
+
+def gear_bonus(state: dict, bonus_key: str) -> int:
+    total = 0
+    for gear_id, owned in state["gear"].items():
+        if owned:
+            total += EQUIPMENT_DEFS[gear_id]["bonuses"].get(bonus_key, 0)
+    return total
+
+
+def can_craft_equipment(state: dict, gear_id: str) -> bool:
+    equipment = EQUIPMENT_DEFS[gear_id]
+    if state["gear"][gear_id]:
+        return False
+    if state["location"] != equipment["craft_room"]:
+        return False
+    return all(state[resource] >= cost for resource, cost in equipment["cost"].items())
+
+
+def crafted_equipment_actions(state: dict, lang: str) -> list[dict]:
+    actions = []
+    for gear_id, equipment in EQUIPMENT_DEFS.items():
+        if can_craft_equipment(state, gear_id):
+            actions.append(localize_action(equipment["craft_action"], equipment["craft_action"], lang))
+    return actions
 
 
 def localized_param(kind: str, value: object) -> dict[str, object]:
@@ -462,7 +508,7 @@ def start_encounter(state: dict, enemy_id: str) -> None:
 def enemy_strikes(state: dict, reduced: bool = False) -> None:
     if not state["encounter"]:
         return
-    damage = state["encounter"]["damage"] - (1 if reduced else 0)
+    damage = state["encounter"]["damage"] - gear_bonus(state, "defense") - (1 if reduced else 0)
     damage = max(damage, 0)
     state["health"] = max(state["health"] - damage, 0)
     add_log(
@@ -510,10 +556,7 @@ def available_actions(state: dict, lang: str = "en") -> list[dict]:
         actions.append(localize_action("move:path", "move:path", lang))
         if not state["flags"]["heard_whispers"]:
             actions.append(localize_action("listen", "listen", lang))
-        if state["scrap"] >= 2 and not state["gear"]["spear"]:
-            actions.append(localize_action("craft_spear", "craft_spear", lang))
-        if state["scrap"] >= 1 and state["wood"] >= 1 and not state["gear"]["torch"]:
-            actions.append(localize_action("craft_torch", "craft_torch", lang))
+        actions.extend(crafted_equipment_actions(state, lang))
 
     if location == "path":
         actions.append(localize_action("scavenge_path", "scavenge_path", lang))
@@ -534,6 +577,7 @@ def available_actions(state: dict, lang: str = "en") -> list[dict]:
         actions.append(localize_action("search_well", "search_well", lang))
         actions.append(localize_action("rest", "rest:well", lang))
         actions.append(localize_action("move:path", "move:path", lang))
+        actions.extend(crafted_equipment_actions(state, lang))
 
     if location == "gate":
         actions.append(localize_action("move:forest", "move:forest:return", lang))
@@ -564,7 +608,7 @@ def apply_action(state: dict, action: str) -> dict:
         enemy = state["encounter"]
 
         if action == "attack":
-            damage = 3 if state["gear"]["spear"] else 2
+            damage = 2 + gear_bonus(state, "attack")
             enemy["hp"] -= damage
             add_log(
                 state,
@@ -574,7 +618,7 @@ def apply_action(state: dict, action: str) -> dict:
             )
             if enemy["hp"] <= 0:
                 if enemy_name(enemy, "en") == "Starved Beast":
-                    state["scrap"] += 1
+                    state["scrap"] += 1 + gear_bonus(state, "loot")
                     end_encounter(state, "beast_falls")
                 else:
                     state["flags"]["gate_open"] = True
@@ -642,17 +686,17 @@ def apply_action(state: dict, action: str) -> dict:
         state["flags"]["heard_whispers"] = True
         add_log(state, "listen")
 
-    elif action == "craft_spear":
-        state["scrap"] -= 2
-        state["gear"]["spear"] = True
-        add_log(state, "craft_spear")
-
-    elif action == "craft_torch":
-        state["scrap"] -= 1
-        state["wood"] -= 1
-        state["gear"]["torch"] = True
-        state["fire"] = min(state["fire"] + 1, 4)
-        add_log(state, "craft_torch")
+    elif action in {equipment["craft_action"] for equipment in EQUIPMENT_DEFS.values()}:
+        for gear_id, equipment in EQUIPMENT_DEFS.items():
+            if equipment["craft_action"] != action:
+                continue
+            for resource, cost in equipment["cost"].items():
+                state[resource] -= cost
+            state["gear"][gear_id] = True
+            if gear_id == "torch":
+                state["fire"] = min(state["fire"] + 1, 4 + gear_bonus(state, "fire_cap"))
+            add_log(state, equipment["message_key"])
+            break
 
     elif action == "gather_wood":
         state["wood"] += 2
@@ -688,29 +732,68 @@ def apply_action(state: dict, action: str) -> dict:
 
 
 def render_map(state: dict, lang: str = "en") -> str:
-    lines = [list(row) for row in MAP_LAYOUTS[pick_lang(lang)]]
-    for room_id in state["visited"]:
-        row, col = ROOM_MARKERS[room_id]
+    room_width = MAP_STYLE["room_width"]
+    room_height = MAP_STYLE["room_height"]
+    max_x = max(room["map_pos"][0] for room in ROOMS.values()) + room_width + MAP_STYLE["padding_x"]
+    max_y = max(room["map_pos"][1] for room in ROOMS.values()) + room_height + MAP_STYLE["padding_y"]
+    lines = [[" " for _ in range(max_x)] for _ in range(max_y)]
+
+    def draw_char(x: int, y: int, char: str) -> None:
+        if 0 <= y < len(lines) and 0 <= x < len(lines[y]):
+            lines[y][x] = char
+
+    def draw_room(room_id: str) -> None:
+        room = ROOMS[room_id]
+        x, y = room["map_pos"]
+        top = "-" * room_width
+        for offset, char in enumerate(top):
+            draw_char(x + offset, y, char)
+            draw_char(x + offset, y + room_height - 1, char)
+        draw_char(x, y + 1, "|")
+        draw_char(x + room_width - 1, y + 1, "|")
+        label = room_name(room_id, lang)[: room_width - 2].center(room_width - 2)
         marker = "X" if room_id == state["location"] else "O"
-        lines[row][col] = marker
-    return "\n".join("".join(row) for row in lines)
+        marker_line = marker.center(room_width - 2) if room_id in state["visited"] else " " * (room_width - 2)
+        for offset, char in enumerate(label):
+            draw_char(x + 1 + offset, y + 1, char)
+        if room_id in state["visited"]:
+            for offset, char in enumerate(marker_line):
+                draw_char(x + 1 + offset, y + 2 - 1, char)
+
+    def draw_connection(start_room: str, end_room: str) -> None:
+        start_x, start_y = ROOMS[start_room]["map_pos"]
+        end_x, end_y = ROOMS[end_room]["map_pos"]
+        start_center_x = start_x + room_width // 2
+        start_center_y = start_y + 1
+        end_center_x = end_x + room_width // 2
+        end_center_y = end_y + 1
+        if start_center_y == end_center_y:
+            for col in range(min(start_center_x, end_center_x) + room_width // 2 - 1, max(start_center_x, end_center_x) - room_width // 2 + 2):
+                draw_char(col, start_center_y, "-")
+        elif start_center_x == end_center_x:
+            for row in range(min(start_center_y, end_center_y) + 1, max(start_center_y, end_center_y)):
+                draw_char(start_center_x, row, "|")
+
+    for room_id, neighbors in CONNECTIONS.items():
+        for neighbor in neighbors:
+            if room_id < neighbor:
+                draw_connection(room_id, neighbor)
+    for room_id in ROOMS:
+        draw_room(room_id)
+
+    return "\n".join("".join(row).rstrip() for row in lines)
 
 
 def render_map_html(state: dict, lang: str = "en") -> str:
-    lines = [list(row) for row in MAP_LAYOUTS[pick_lang(lang)]]
-    markers = {}
-    for room_id in state["visited"]:
-        row, col = ROOM_MARKERS[room_id]
-        marker = "X" if room_id == state["location"] else "O"
-        lines[row][col] = marker
-        markers[(row, col)] = marker
+    raw_map = render_map(state, lang)
+    lines = [list(row) for row in raw_map.splitlines()]
 
     html_lines = []
     for row_index, row in enumerate(lines):
         parts = []
         for col_index, char in enumerate(row):
-            if (row_index, col_index) in markers:
-                css_class = "map-marker-x" if markers[(row_index, col_index)] == "X" else "map-marker-o"
+            if char in {"X", "O"}:
+                css_class = "map-marker-x" if char == "X" else "map-marker-o"
                 parts.append(f'<span class="{css_class}">{escape(char)}</span>')
             else:
                 parts.append(escape(char))
@@ -734,14 +817,17 @@ def stats(state: dict, lang: str = "en") -> list[tuple[str, int | str]]:
         "goal_claimed": {"en": "Banner claimed", "zh": "已取得旗帜"},
         "goal_active": {"en": "Claim the banner", "zh": "取得旗帜"},
     }
-    gear_names = [text(GEAR_LABELS[name], lang) for name, owned in state["gear"].items() if owned]
+    gear_names = [text(EQUIPMENT_DEFS[name]["label"], lang) for name, owned in state["gear"].items() if owned]
     return [
         (text({"en": "Day", "zh": "天数"}, lang), state["day"]),
+        (text({"en": "Run", "zh": "本局"}, lang), f"#{state['run']['seed']}"),
+        (text({"en": "Depth", "zh": "层数"}, lang), state["run"]["depth"]),
         (text({"en": "Health", "zh": "生命"}, lang), f"{state['health']}/{state['max_health']}"),
         (text({"en": "Fire", "zh": "火势"}, lang), state["fire"]),
         (text({"en": "Wood", "zh": "木材"}, lang), state["wood"]),
         (text({"en": "Scrap", "zh": "废料"}, lang), state["scrap"]),
         (text({"en": "Herbs", "zh": "草药"}, lang), state["herbs"]),
+        (text({"en": "Threat", "zh": "威胁"}, lang), state["run"]["threat"]),
         (text({"en": "Gear", "zh": "装备"}, lang), ", ".join(gear_names) or text({"en": "None", "zh": "无"}, lang)),
         (text({"en": "Goal", "zh": "目标"}, lang), text(goal_value[goal_key], lang)),
     ]
