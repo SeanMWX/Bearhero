@@ -113,7 +113,7 @@ CONNECTIONS = {
 
 MAP_STYLE = {
     "room_width": 11,
-    "room_height": 3,
+    "room_height": 4,
     "padding_x": 2,
     "padding_y": 2,
 }
@@ -145,6 +145,10 @@ ACTION_LABELS = {
     "search_well": {"en": "Search the well stones", "zh": "翻找井沿石缝"},
     "open_gate": {"en": "Force the rusted gate", "zh": "强闯锈门"},
     "move:ruin": {"en": "Enter the broken hall", "zh": "进入破厅"},
+    "descend_ruin": {"en": "Descend deeper", "zh": "继续深入"},
+    "loot_ruin": {"en": "Search the chamber", "zh": "搜索房间"},
+    "camp_ruin": {"en": "Catch your breath", "zh": "停下喘息"},
+    "fight_ruin": {"en": "Challenge the shadow", "zh": "迎战阴影"},
     "claim_banner": {"en": "Claim the fallen banner", "zh": "拾起倒下的旗帜"},
     "move:gate:return": {"en": "Leave the ruin", "zh": "离开废墟"},
     "move:forest:return": {"en": "Step back into the woods", "zh": "退回树林"},
@@ -196,6 +200,54 @@ ROGUELIKE_RUN_CONFIG = {
     "starting_depth": 1,
     "threat_per_day": 1,
     "depth_goal": 3,
+}
+
+
+RUIN_CHAMBERS = {
+    "storehouse": {
+        "name": {"en": "Storehouse", "zh": "储藏间"},
+        "title": {"en": "A cracked storehouse full of splinters and old crates", "zh": "一间堆满裂木箱和碎屑的储藏间"},
+        "description": {
+            "en": "Dusty shelves lean against the wall. Something useful may still be buried here.",
+            "zh": "落灰的木架斜靠在墙边，废墟里也许还埋着能用的东西。",
+        },
+        "action_text": {
+            "en": "You can search the room, push deeper, or turn back while the route is still clear.",
+            "zh": "你可以搜索房间、继续深入，或者趁退路还清楚时折返。",
+        },
+        "action": "loot_ruin",
+        "reward": {"scrap": 1, "herbs": 1},
+        "message_key": "loot_ruin",
+    },
+    "camp": {
+        "name": {"en": "Ash Camp", "zh": "灰烬营地"},
+        "title": {"en": "An abandoned camp ringed with cold ash", "zh": "一处被冷灰围住的废弃营地"},
+        "description": {
+            "en": "Someone stopped here before you. The fire is dead, but the ground is momentarily safe.",
+            "zh": "有人比你更早在这里停留过。火堆早已熄灭，但这里暂时还算安全。",
+        },
+        "action_text": {
+            "en": "You can steady yourself here before the next descent.",
+            "zh": "你可以在这里先稳住呼吸，再继续往下。",
+        },
+        "action": "camp_ruin",
+        "message_key": "camp_ruin",
+    },
+    "lair": {
+        "name": {"en": "Shadow Lair", "zh": "阴影巢穴"},
+        "title": {"en": "The dark here feels occupied", "zh": "这里的黑暗像是被什么东西占住了"},
+        "description": {
+            "en": "Fresh scratches bite across the stone. Something living waits in the chamber ahead.",
+            "zh": "新鲜的抓痕划过石面，前面的房间里显然还藏着活物。",
+        },
+        "action_text": {
+            "en": "If you mean to keep descending, something has to give first.",
+            "zh": "如果你想继续深入，得先把这里的东西解决掉。",
+        },
+        "action": "fight_ruin",
+        "enemy": "beast",
+        "message_key": "fight_ruin",
+    },
 }
 
 
@@ -342,6 +394,22 @@ MESSAGES = {
         "en": "Between the stones you find old nails and a short iron hook.",
         "zh": "你在石缝之间翻出几枚旧钉子和一只短铁钩。",
     },
+    "loot_ruin": {
+        "en": "You pry useful fragments out of the ruin and stash them for the climb.",
+        "zh": "你从废墟里撬出一些还能用的碎件，塞进包里留着继续下探。",
+    },
+    "camp_ruin": {
+        "en": "You slow your breathing and let the chamber settle around you for a moment.",
+        "zh": "你放慢呼吸，让四周的黑暗暂时沉下去，给自己争出片刻喘息。",
+    },
+    "fight_ruin": {
+        "en": "You step forward and let the chamber's owner come to you.",
+        "zh": "你主动向前一步，等着房间里的东西自己扑过来。",
+    },
+    "descend_ruin": {
+        "en": "You descend another layer into the ruin. The route behind you feels thinner.",
+        "zh": "你又向废墟深处下降了一层，身后的退路也跟着变得更细了。",
+    },
     "claim_banner": {
         "en": "You lift the fallen banner from the dust. Bearhero has a beginning.",
         "zh": "你从尘土中举起倒下的旗帜。Bearhero 的故事开始了。",
@@ -405,12 +473,15 @@ DEFAULT_STATE = {
 
 def new_game_state() -> dict:
     state = deepcopy(DEFAULT_STATE)
+    seed = random.randint(ROGUELIKE_RUN_CONFIG["seed_min"], ROGUELIKE_RUN_CONFIG["seed_max"])
     state["gear"] = {gear_id: False for gear_id in EQUIPMENT_DEFS}
     state["run"] = {
         "mode": ROGUELIKE_RUN_CONFIG["mode"],
-        "seed": random.randint(ROGUELIKE_RUN_CONFIG["seed_min"], ROGUELIKE_RUN_CONFIG["seed_max"]),
+        "seed": seed,
         "depth": ROGUELIKE_RUN_CONFIG["starting_depth"],
         "threat": 1,
+        "ruin_route": build_ruin_route(seed),
+        "cleared_depths": [],
     }
     return state
 
@@ -450,6 +521,17 @@ def crafted_equipment_actions(state: dict, lang: str) -> list[dict]:
         if can_craft_equipment(state, gear_id):
             actions.append(localize_action(equipment["craft_action"], equipment["craft_action"], lang))
     return actions
+
+
+def build_ruin_route(seed: int) -> list[str]:
+    chamber_ids = sorted(RUIN_CHAMBERS)
+    rng = random.Random(seed)
+    return [rng.choice(chamber_ids) for _ in range(ROGUELIKE_RUN_CONFIG["depth_goal"])]
+
+
+def current_ruin_chamber(state: dict) -> dict:
+    chamber_id = state["run"]["ruin_route"][state["run"]["depth"] - 1]
+    return RUIN_CHAMBERS[chamber_id]
 
 
 def localized_param(kind: str, value: object) -> dict[str, object]:
@@ -502,6 +584,10 @@ def move_to(state: dict, destination: str) -> None:
 
 def start_encounter(state: dict, enemy_id: str) -> None:
     state["encounter"] = deepcopy(ENEMIES[enemy_id])
+    state["encounter"]["id"] = enemy_id
+    threat_bonus = max(state["run"]["threat"] - 1, 0)
+    state["encounter"]["hp"] += threat_bonus
+    state["encounter"]["damage"] += threat_bonus // 2
     add_log(state, "enemy_intro", intro=localized_param("localized_text", state["encounter"]["intro"]))
 
 
@@ -587,7 +673,14 @@ def available_actions(state: dict, lang: str = "en") -> list[dict]:
             actions.append(localize_action("move:ruin", "move:ruin", lang))
 
     if location == "ruin":
-        if not state["flags"]["won"]:
+        chamber = current_ruin_chamber(state)
+        current_depth = state["run"]["depth"]
+        cleared = current_depth in state["run"]["cleared_depths"]
+        if not cleared:
+            actions.append(localize_action(chamber["action"], chamber["action"], lang))
+        if current_depth < ROGUELIKE_RUN_CONFIG["depth_goal"]:
+            actions.append(localize_action("descend_ruin", "descend_ruin", lang))
+        elif not state["flags"]["won"]:
             actions.append(localize_action("claim_banner", "claim_banner", lang))
         actions.append(localize_action("move:gate", "move:gate:return", lang))
 
@@ -617,7 +710,7 @@ def apply_action(state: dict, action: str) -> dict:
                 damage=damage,
             )
             if enemy["hp"] <= 0:
-                if enemy_name(enemy, "en") == "Starved Beast":
+                if enemy.get("id") == "beast":
                     state["scrap"] += 1 + gear_bonus(state, "loot")
                     end_encounter(state, "beast_falls")
                 else:
@@ -728,6 +821,29 @@ def apply_action(state: dict, action: str) -> dict:
         state["flags"]["won"] = True
         add_log(state, "claim_banner")
 
+    elif action == "descend_ruin":
+        state["run"]["depth"] = min(state["run"]["depth"] + 1, ROGUELIKE_RUN_CONFIG["depth_goal"])
+        state["run"]["threat"] += ROGUELIKE_RUN_CONFIG["threat_per_day"]
+        add_log(state, "descend_ruin")
+
+    elif action in {"loot_ruin", "camp_ruin", "fight_ruin"}:
+        chamber = current_ruin_chamber(state)
+        current_depth = state["run"]["depth"]
+        if action == "loot_ruin":
+            reward = chamber.get("reward", {})
+            state["scrap"] += reward.get("scrap", 0) + gear_bonus(state, "loot")
+            state["herbs"] += reward.get("herbs", 0)
+            add_log(state, chamber["message_key"])
+        elif action == "camp_ruin":
+            state["health"] = min(state["health"] + 2, state["max_health"])
+            state["run"]["threat"] = max(state["run"]["threat"] - 1, 1)
+            add_log(state, chamber["message_key"])
+        elif action == "fight_ruin":
+            add_log(state, chamber["message_key"])
+            start_encounter(state, chamber["enemy"])
+        if current_depth not in state["run"]["cleared_depths"]:
+            state["run"]["cleared_depths"].append(current_depth)
+
     return state
 
 
@@ -749,8 +865,9 @@ def render_map(state: dict, lang: str = "en") -> str:
         for offset, char in enumerate(top):
             draw_char(x + offset, y, char)
             draw_char(x + offset, y + room_height - 1, char)
-        draw_char(x, y + 1, "|")
-        draw_char(x + room_width - 1, y + 1, "|")
+        for inner_row in range(1, room_height - 1):
+            draw_char(x, y + inner_row, "|")
+            draw_char(x + room_width - 1, y + inner_row, "|")
         label = room_name(room_id, lang)[: room_width - 2].center(room_width - 2)
         marker = "X" if room_id == state["location"] else "O"
         marker_line = marker.center(room_width - 2) if room_id in state["visited"] else " " * (room_width - 2)
@@ -758,7 +875,7 @@ def render_map(state: dict, lang: str = "en") -> str:
             draw_char(x + 1 + offset, y + 1, char)
         if room_id in state["visited"]:
             for offset, char in enumerate(marker_line):
-                draw_char(x + 1 + offset, y + 2 - 1, char)
+                draw_char(x + 1 + offset, y + 2, char)
 
     def draw_connection(start_room: str, end_room: str) -> None:
         start_x, start_y = ROOMS[start_room]["map_pos"]
@@ -802,6 +919,15 @@ def render_map_html(state: dict, lang: str = "en") -> str:
 
 
 def current_room(state: dict, lang: str = "en") -> dict:
+    if state["location"] == "ruin":
+        chamber = current_ruin_chamber(state)
+        depth = state["run"]["depth"]
+        return {
+            "name": f"{text(chamber['name'], lang)} {depth}",
+            "title": text(chamber["title"], lang),
+            "description": text(chamber["description"], lang),
+            "action_text": text(chamber["action_text"], lang),
+        }
     room = ROOMS[state["location"]]
     return {
         "name": text(room["name"], lang),

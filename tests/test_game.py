@@ -1,7 +1,7 @@
 import unittest
 import random
 
-from game import apply_action, available_actions, enemy_name, new_game_state, present_log, render_map_html
+from game import apply_action, available_actions, current_room, enemy_name, new_game_state, present_log, render_map_html
 
 
 class GameStateTests(unittest.TestCase):
@@ -168,6 +168,38 @@ class GameStateTests(unittest.TestCase):
 
                 if state["flags"]["gate_open"]:
                     self.assertIn("gate", state["visited"])
+
+    def test_ruin_depth_progression_uses_run_state(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["ruin_route"] = ["storehouse", "camp", "lair"]
+
+        actions = {item["key"] for item in available_actions(state)}
+        self.assertIn("loot_ruin", actions)
+        self.assertIn("descend_ruin", actions)
+
+        apply_action(state, "loot_ruin")
+        self.assertIn(1, state["run"]["cleared_depths"])
+
+        apply_action(state, "descend_ruin")
+        self.assertEqual(state["run"]["depth"], 2)
+        self.assertEqual(state["run"]["threat"], 2)
+        self.assertEqual(current_room(state, "en")["name"], "Ash Camp 2")
+
+    def test_ruin_fight_action_starts_scaled_encounter(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["depth"] = 3
+        state["run"]["threat"] = 3
+        state["run"]["ruin_route"] = ["storehouse", "camp", "lair"]
+
+        apply_action(state, "fight_ruin")
+
+        self.assertIsNotNone(state["encounter"])
+        self.assertEqual(state["encounter"]["id"], "beast")
+        self.assertEqual(state["encounter"]["hp"], 7)
 
 
 if __name__ == "__main__":
