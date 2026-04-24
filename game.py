@@ -133,6 +133,8 @@ ACTION_LABELS = {
     "craft_torch": {"en": "Bind a torch", "zh": "捆扎火把"},
     "craft_coat": {"en": "Sew a padded coat", "zh": "缝制护身棉衣"},
     "craft_charm": {"en": "Thread a scavenger charm", "zh": "串起拾荒护符"},
+    "craft_grave_pike": {"en": "Forge a grave pike", "zh": "锻造墓尖枪"},
+    "craft_saint_wrap": {"en": "Weave a saint wrap", "zh": "编织圣纹披带"},
     "scavenge_path": {"en": "Search the roadside", "zh": "搜索路边"},
     "investigate_path": {"en": "Investigate the tracks", "zh": "调查痕迹"},
     "move:hut": {"en": "Return to the hut", "zh": "回到黑屋"},
@@ -161,6 +163,7 @@ ACTION_LABELS = {
 EQUIPMENT_DEFS = {
     "spear": {
         "label": {"en": "Spear", "zh": "长矛"},
+        "rarity": "common",
         "craft_action": "craft_spear",
         "craft_room": "hut",
         "cost": {"scrap": 2},
@@ -169,6 +172,7 @@ EQUIPMENT_DEFS = {
     },
     "torch": {
         "label": {"en": "Torch", "zh": "火把"},
+        "rarity": "common",
         "craft_action": "craft_torch",
         "craft_room": "hut",
         "cost": {"scrap": 1, "wood": 1},
@@ -177,6 +181,7 @@ EQUIPMENT_DEFS = {
     },
     "coat": {
         "label": {"en": "Padded Coat", "zh": "护身棉衣"},
+        "rarity": "common",
         "craft_action": "craft_coat",
         "craft_room": "hut",
         "cost": {"scrap": 1, "wood": 2},
@@ -185,12 +190,38 @@ EQUIPMENT_DEFS = {
     },
     "charm": {
         "label": {"en": "Scavenger Charm", "zh": "拾荒护符"},
+        "rarity": "common",
         "craft_action": "craft_charm",
         "craft_room": "well",
         "cost": {"scrap": 1, "herbs": 1},
         "message_key": "craft_charm",
         "bonuses": {"loot": 1},
     },
+    "grave_pike": {
+        "label": {"en": "Grave Pike", "zh": "墓尖枪"},
+        "rarity": "rare",
+        "craft_action": "craft_grave_pike",
+        "craft_room": "hut",
+        "cost": {"scrap": 3, "relics": 1},
+        "message_key": "craft_grave_pike",
+        "bonuses": {"attack": 2},
+    },
+    "saint_wrap": {
+        "label": {"en": "Saint Wrap", "zh": "圣纹披带"},
+        "rarity": "relic",
+        "craft_action": "craft_saint_wrap",
+        "craft_room": "hut",
+        "cost": {"herbs": 2, "relics": 1},
+        "message_key": "craft_saint_wrap",
+        "bonuses": {"defense": 1, "loot": 1},
+    },
+}
+
+
+RARITY_LABELS = {
+    "common": {"en": "Common", "zh": "普通"},
+    "rare": {"en": "Rare", "zh": "稀有"},
+    "relic": {"en": "Relic", "zh": "遗物"},
 }
 
 
@@ -246,7 +277,7 @@ RUIN_CHAMBERS = {
             "zh": "这里只偏爱那些肯把手伸进灰里的拾荒者。",
         },
         "action": "loot_ruin",
-        "reward_table": {"scrap": (2, 3)},
+        "reward_table": {"scrap": (2, 3), "relics": (0, 1)},
         "message_key": "loot_ruin",
     },
     "lair": {
@@ -277,6 +308,21 @@ RUIN_CHAMBERS = {
         },
         "action": "camp_ruin",
         "message_key": "camp_ruin",
+    },
+    "vault": {
+        "name": {"en": "Relic Vault", "zh": "遗物密库"},
+        "title": {"en": "A sealed cache where the old keepers hid their finest salvage", "zh": "一间封存着旧看守者珍贵遗物的密库"},
+        "description": {
+            "en": "The chamber was meant to be forgotten. That is exactly why something valuable survived here.",
+            "zh": "这间密库原本就是为了被遗忘而存在的，也正因如此，值钱的东西才留到了现在。",
+        },
+        "action_text": {
+            "en": "This is the kind of room that can change a run if you make it back out.",
+            "zh": "这种房间足以改变一局，只要你能把东西带着活着出去。",
+        },
+        "action": "loot_ruin",
+        "reward_table": {"scrap": (1, 2), "relics": (1, 2)},
+        "message_key": "loot_ruin",
     },
 }
 
@@ -408,6 +454,14 @@ MESSAGES = {
         "en": "You string wire, nails, and herb stems into a scavenger charm for luck.",
         "zh": "你把铁丝、旧钉和草茎串成一枚拾荒护符，给自己添一点运气。",
     },
+    "craft_grave_pike": {
+        "en": "You fold ruin-metal into a long, mean pike meant for deeper halls.",
+        "zh": "你把废墟里挖出的金属反复敲打，锻成一柄专门为更深层准备的墓尖枪。",
+    },
+    "craft_saint_wrap": {
+        "en": "You weave relic thread and bitter herbs into a wrap that steadies hand and breath.",
+        "zh": "你把遗物纤维和苦草编进披带里，让手和呼吸都稳下来。",
+    },
     "gather_wood": {
         "en": "You drag back a bundle of wet branches. It will do.",
         "zh": "你拖回一捆潮湿树枝，勉强还能用。",
@@ -481,6 +535,7 @@ DEFAULT_STATE = {
     "wood": 2,
     "scrap": 0,
     "herbs": 0,
+    "relics": 0,
     "health": 10,
     "max_health": 10,
     "day": 1,
@@ -555,6 +610,17 @@ def crafted_equipment_actions(state: dict, lang: str) -> list[dict]:
         if can_craft_equipment(state, gear_id):
             actions.append(localize_action(equipment["craft_action"], equipment["craft_action"], lang))
     return actions
+
+
+def equipment_display_name(gear_id: str, lang: str) -> str:
+    equipment = EQUIPMENT_DEFS[gear_id]
+    rarity = equipment["rarity"]
+    base_name = text(equipment["label"], lang)
+    if rarity == "common":
+        return base_name
+    if lang == "zh":
+        return f"{text(RARITY_LABELS[rarity], lang)}·{base_name}"
+    return f"{text(RARITY_LABELS[rarity], lang)} {base_name}"
 
 
 def build_ruin_route(seed: int) -> list[str]:
@@ -914,8 +980,9 @@ def apply_action(state: dict, action: str) -> dict:
         current_depth = state["run"]["depth"]
         if action == "loot_ruin":
             reward = resolve_chamber_reward(state, chamber)
-            state["scrap"] += reward.get("scrap", 0) + gear_bonus(state, "loot")
-            state["herbs"] += reward.get("herbs", 0)
+            for resource, amount in reward.items():
+                state[resource] += amount
+            state["scrap"] += gear_bonus(state, "loot")
             add_log(state, chamber["message_key"])
         elif action == "camp_ruin":
             state["health"] = min(state["health"] + 2, state["max_health"])
@@ -1026,7 +1093,7 @@ def stats(state: dict, lang: str = "en") -> list[tuple[str, int | str]]:
         "goal_claimed": {"en": "Banner claimed", "zh": "已取得旗帜"},
         "goal_active": {"en": "Claim the banner", "zh": "取得旗帜"},
     }
-    gear_names = [text(EQUIPMENT_DEFS[name]["label"], lang) for name, owned in state["gear"].items() if owned]
+    gear_names = [equipment_display_name(name, lang) for name, owned in state["gear"].items() if owned]
     return [
         (text({"en": "Day", "zh": "天数"}, lang), state["day"]),
         (text({"en": "Run", "zh": "本局"}, lang), f"#{state['run']['seed']}"),
@@ -1036,6 +1103,7 @@ def stats(state: dict, lang: str = "en") -> list[tuple[str, int | str]]:
         (text({"en": "Wood", "zh": "木材"}, lang), state["wood"]),
         (text({"en": "Scrap", "zh": "废料"}, lang), state["scrap"]),
         (text({"en": "Herbs", "zh": "草药"}, lang), state["herbs"]),
+        (text({"en": "Relics", "zh": "遗物"}, lang), state["relics"]),
         (text({"en": "Threat", "zh": "威胁"}, lang), state["run"]["threat"]),
         (text({"en": "Gear", "zh": "装备"}, lang), ", ".join(gear_names) or text({"en": "None", "zh": "无"}, lang)),
         (text({"en": "Goal", "zh": "目标"}, lang), text(goal_value[goal_key], lang)),

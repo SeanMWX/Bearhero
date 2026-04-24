@@ -1,7 +1,7 @@
 import unittest
 import random
 
-from game import apply_action, available_actions, build_ruin_branches, build_ruin_route, current_room, enemy_name, new_game_state, present_log, render_map_html
+from game import apply_action, available_actions, build_ruin_branches, build_ruin_route, current_room, enemy_name, new_game_state, present_log, render_map_html, stats
 
 
 class GameStateTests(unittest.TestCase):
@@ -161,6 +161,7 @@ class GameStateTests(unittest.TestCase):
                 self.assertGreaterEqual(state["wood"], 0)
                 self.assertGreaterEqual(state["scrap"], 0)
                 self.assertGreaterEqual(state["herbs"], 0)
+                self.assertGreaterEqual(state["relics"], 0)
                 self.assertGreaterEqual(state["health"], 0)
 
                 if state["flags"]["won"]:
@@ -282,6 +283,48 @@ class GameStateTests(unittest.TestCase):
         self.assertIn("搜刮", actions["descend_left"])
         self.assertIn("寂静祠堂", actions["descend_right"])
         self.assertIn("休整", actions["descend_right"])
+
+    def test_vault_loot_can_award_relics_deterministically(self) -> None:
+        state_a = new_game_state()
+        state_b = new_game_state()
+
+        for state in (state_a, state_b):
+            state["location"] = "ruin"
+            state["flags"]["gate_open"] = True
+            state["run"]["seed"] = 9090
+            state["run"]["depth"] = 1
+            state["run"]["ruin_path"] = ["vault"]
+            state["run"]["ruin_branches"] = [("camp", "lair"), ("forge", "sanctuary")]
+
+        apply_action(state_a, "loot_ruin")
+        apply_action(state_b, "loot_ruin")
+
+        self.assertGreaterEqual(state_a["relics"], 1)
+        self.assertEqual(state_a["relics"], state_b["relics"])
+
+    def test_rare_equipment_can_be_crafted_and_changes_attack_profile(self) -> None:
+        state = new_game_state()
+        state["scrap"] = 3
+        state["relics"] = 1
+
+        apply_action(state, "craft_grave_pike")
+
+        self.assertTrue(state["gear"]["grave_pike"])
+        self.assertEqual(state["scrap"], 0)
+        self.assertEqual(state["relics"], 0)
+
+        state["location"] = "forest"
+        apply_action(state, "hunt_noise")
+        apply_action(state, "attack")
+
+        self.assertEqual(state["encounter"]["hp"], 1)
+
+    def test_stats_show_rarity_for_non_common_gear(self) -> None:
+        state = new_game_state()
+        state["gear"]["grave_pike"] = True
+        labels = dict(stats(state, "en"))
+
+        self.assertIn("Rare Grave Pike", labels["Gear"])
 
 
 if __name__ == "__main__":
