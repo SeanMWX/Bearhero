@@ -386,11 +386,25 @@ def enemy_name(enemy: dict, lang: str) -> str:
     return text(enemy["name"], lang)
 
 
+def localized_param(kind: str, value: object) -> dict[str, object]:
+    return {"kind": kind, "value": value}
+
+
 def resolve_params(lang: str, params: dict) -> dict:
     resolved = {}
     for key, value in params.items():
         if isinstance(value, dict):
-            resolved[key] = text(value, lang)
+            kind = value.get("kind")
+            if kind == "room_name":
+                resolved[key] = room_name(value["value"], lang)
+            elif kind == "room_title":
+                resolved[key] = room_title(value["value"], lang)
+            elif kind == "enemy_name":
+                resolved[key] = enemy_name(value["value"], lang)
+            elif kind == "localized_text":
+                resolved[key] = text(value["value"], lang)
+            else:
+                resolved[key] = text(value, lang)
         else:
             resolved[key] = value
     return resolved
@@ -409,18 +423,18 @@ def add_log(state: dict, key: str, **params: object) -> None:
 def visit_room(state: dict, room_id: str) -> None:
     if room_id not in state["visited"]:
         state["visited"].append(room_id)
-        add_log(state, "discover_room", room_name=ROOMS[room_id]["name"])
+        add_log(state, "discover_room", room_name=localized_param("room_name", room_id))
 
 
 def move_to(state: dict, destination: str) -> None:
     state["location"] = destination
     visit_room(state, destination)
-    add_log(state, "room_title_entry", room_title=ROOMS[destination]["title"])
+    add_log(state, "room_title_entry", room_title=localized_param("room_title", destination))
 
 
 def start_encounter(state: dict, enemy_id: str) -> None:
     state["encounter"] = deepcopy(ENEMIES[enemy_id])
-    add_log(state, "enemy_intro", intro=state["encounter"]["intro"])
+    add_log(state, "enemy_intro", intro=localized_param("localized_text", state["encounter"]["intro"]))
 
 
 def enemy_strikes(state: dict, reduced: bool = False) -> None:
@@ -429,7 +443,12 @@ def enemy_strikes(state: dict, reduced: bool = False) -> None:
     damage = state["encounter"]["damage"] - (1 if reduced else 0)
     damage = max(damage, 0)
     state["health"] = max(state["health"] - damage, 0)
-    add_log(state, "enemy_hits", enemy_name=state["encounter"]["name"], damage=damage)
+    add_log(
+        state,
+        "enemy_hits",
+        enemy_name=localized_param("enemy_name", state["encounter"]),
+        damage=damage,
+    )
     if state["health"] == 0:
         state["flags"]["game_over"] = True
         add_log(state, "collapse_dark")
@@ -522,7 +541,12 @@ def apply_action(state: dict, action: str) -> dict:
         if action == "attack":
             damage = 3 if state["gear"]["spear"] else 2
             enemy["hp"] -= damage
-            add_log(state, "attack_hit", enemy_name=enemy["name"], damage=damage)
+            add_log(
+                state,
+                "attack_hit",
+                enemy_name=localized_param("enemy_name", enemy),
+                damage=damage,
+            )
             if enemy["hp"] <= 0:
                 if enemy_name(enemy, "en") == "Starved Beast":
                     state["scrap"] += 1
@@ -549,7 +573,7 @@ def apply_action(state: dict, action: str) -> dict:
 
         if action == "flee":
             fallback = "path" if state["location"] != "hut" else "hut"
-            add_log(state, "flee_enemy", enemy_name=enemy["name"])
+            add_log(state, "flee_enemy", enemy_name=localized_param("enemy_name", enemy))
             state["encounter"] = None
             move_to(state, fallback)
             state["health"] = max(state["health"] - 1, 0)
