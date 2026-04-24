@@ -495,6 +495,18 @@ MESSAGES = {
         "en": "You descend another layer into the ruin. The route behind you feels thinner.",
         "zh": "你又向废墟深处下降了一层，身后的退路也跟着变得更细了。",
     },
+    "ending_iron": {
+        "en": "You return to the hut with the banner and a weapon fit for deeper wars. This run ends in iron.",
+        "zh": "你带着旗帜回到黑屋，手里还握着足以继续深入的兵器。这一局以铁收尾。",
+    },
+    "ending_saint": {
+        "en": "You return to the hut with the banner wrapped in careful hands. This run ends in quiet grace.",
+        "zh": "你带着旗帜回到黑屋，小心地把它护在怀里。这一局以静默的余恩收尾。",
+    },
+    "ending_scavenger": {
+        "en": "You drag the banner home by grit alone. It is enough. This run ends in survival.",
+        "zh": "你靠着一口气把旗帜拖回了黑屋。已经足够。这一局以生还收尾。",
+    },
     "claim_banner": {
         "en": "You lift the fallen banner from the dust. Bearhero has a beginning.",
         "zh": "你从尘土中举起倒下的旗帜。Bearhero 的故事开始了。",
@@ -549,6 +561,7 @@ DEFAULT_STATE = {
         "heard_whispers": False,
         "gate_open": False,
         "won": False,
+        "ended": False,
         "game_over": False,
     },
     "encounter": None,
@@ -624,6 +637,20 @@ def equipment_display_name(gear_id: str, lang: str) -> str:
     if lang == "zh":
         return f"{text(RARITY_LABELS[rarity], lang)}·{base_name}"
     return f"{text(RARITY_LABELS[rarity], lang)} {base_name}"
+
+
+def goal_text(state: dict, lang: str) -> str:
+    if state["flags"]["ended"]:
+        return text({"en": "The banner made it home", "zh": "旗帜已经回到黑屋"}, lang)
+    if state["flags"]["won"]:
+        return text({"en": "Bring the banner back to the hut", "zh": "把旗帜带回黑屋"}, lang)
+    if state["flags"]["gate_open"]:
+        if state["location"] == "ruin":
+            if state["run"]["depth"] < ROGUELIKE_RUN_CONFIG["depth_goal"]:
+                return text({"en": f"Reach depth {ROGUELIKE_RUN_CONFIG['depth_goal']}", "zh": f"抵达第 {ROGUELIKE_RUN_CONFIG['depth_goal']} 层"}, lang)
+            return text({"en": "Claim the banner", "zh": "取得旗帜"}, lang)
+        return text({"en": "Descend into the ruin", "zh": "深入废墟"}, lang)
+    return text({"en": "Prepare, survive, and force the gate", "zh": "准备、活下去，然后强闯锈门"}, lang)
 
 
 def build_ruin_route(seed: int) -> list[str]:
@@ -710,6 +737,8 @@ def move_to(state: dict, destination: str) -> None:
     state["location"] = destination
     visit_room(state, destination)
     add_log(state, "room_title_entry", room_title=localized_param("room_title", destination))
+    if destination == "hut" and state["flags"]["won"] and not state["flags"]["ended"]:
+        finish_run(state)
 
 
 def start_encounter(state: dict, enemy_id: str) -> None:
@@ -743,6 +772,19 @@ def end_encounter(state: dict, victory_key: str) -> None:
     state["encounter"] = None
 
 
+def ending_key(state: dict) -> str:
+    if state["gear"].get("saint_wrap") or state["sigils"] > state["iron"]:
+        return "ending_saint"
+    if state["gear"].get("grave_pike") or state["iron"] >= state["sigils"] + 1:
+        return "ending_iron"
+    return "ending_scavenger"
+
+
+def finish_run(state: dict) -> None:
+    state["flags"]["ended"] = True
+    add_log(state, ending_key(state))
+
+
 def localize_action(key: str, label_key: str, lang: str) -> dict:
     return {"key": key, "label": text(ACTION_LABELS[label_key], lang)}
 
@@ -765,6 +807,9 @@ def available_actions(state: dict, lang: str = "en") -> list[dict]:
     lang = pick_lang(lang)
 
     if state["flags"]["game_over"]:
+        return [localize_action("restart", "restart", lang)]
+
+    if state["flags"]["ended"]:
         return [localize_action("restart", "restart", lang)]
 
     if state["encounter"]:
@@ -1094,11 +1139,6 @@ def current_room(state: dict, lang: str = "en") -> dict:
 
 
 def stats(state: dict, lang: str = "en") -> list[tuple[str, int | str]]:
-    goal_key = "goal_claimed" if state["flags"]["won"] else "goal_active"
-    goal_value = {
-        "goal_claimed": {"en": "Banner claimed", "zh": "已取得旗帜"},
-        "goal_active": {"en": "Claim the banner", "zh": "取得旗帜"},
-    }
     gear_names = [equipment_display_name(name, lang) for name, owned in state["gear"].items() if owned]
     return [
         (text({"en": "Day", "zh": "天数"}, lang), state["day"]),
@@ -1114,7 +1154,7 @@ def stats(state: dict, lang: str = "en") -> list[tuple[str, int | str]]:
         (text({"en": "Relics", "zh": "遗物"}, lang), state["relics"]),
         (text({"en": "Threat", "zh": "威胁"}, lang), state["run"]["threat"]),
         (text({"en": "Gear", "zh": "装备"}, lang), ", ".join(gear_names) or text({"en": "None", "zh": "无"}, lang)),
-        (text({"en": "Goal", "zh": "目标"}, lang), text(goal_value[goal_key], lang)),
+        (text({"en": "Goal", "zh": "目标"}, lang), goal_text(state, lang)),
     ]
 
 

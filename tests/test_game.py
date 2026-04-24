@@ -1,7 +1,7 @@
 import unittest
 import random
 
-from game import apply_action, available_actions, build_ruin_branches, build_ruin_route, current_room, enemy_name, new_game_state, present_log, render_map_html, stats
+from game import apply_action, available_actions, build_ruin_branches, build_ruin_route, current_room, enemy_name, goal_text, new_game_state, present_log, render_map_html, stats
 
 
 class GameStateTests(unittest.TestCase):
@@ -327,6 +327,40 @@ class GameStateTests(unittest.TestCase):
         labels = dict(stats(state, "en"))
 
         self.assertIn("Rare Grave Pike", labels["Gear"])
+
+    def test_goal_text_advances_with_mainline_progress(self) -> None:
+        state = new_game_state()
+        self.assertIn("force the gate", goal_text(state, "en"))
+
+        state["flags"]["gate_open"] = True
+        self.assertIn("Descend into the ruin", goal_text(state, "en"))
+
+        state["location"] = "ruin"
+        state["run"]["depth"] = 3
+        self.assertIn("Claim the banner", goal_text(state, "en"))
+
+        state["flags"]["won"] = True
+        self.assertIn("Bring the banner back", goal_text(state, "en"))
+
+    def test_returning_banner_to_hut_finishes_the_run(self) -> None:
+        state = new_game_state()
+        state["flags"]["won"] = True
+        state["location"] = "path"
+
+        apply_action(state, "move:hut")
+
+        self.assertTrue(state["flags"]["ended"])
+        self.assertEqual(available_actions(state)[0]["key"], "restart")
+
+    def test_saint_route_can_produce_saint_ending(self) -> None:
+        state = new_game_state()
+        state["flags"]["won"] = True
+        state["gear"]["saint_wrap"] = True
+        state["location"] = "path"
+
+        apply_action(state, "move:hut")
+
+        self.assertTrue(any("quiet grace" in line for line in present_log(state, "en")))
 
     def test_forge_loot_path_awards_weapon_materials(self) -> None:
         state = new_game_state()
