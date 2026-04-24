@@ -304,13 +304,15 @@ class GameStateTests(unittest.TestCase):
 
     def test_rare_equipment_can_be_crafted_and_changes_attack_profile(self) -> None:
         state = new_game_state()
-        state["scrap"] = 3
+        state["scrap"] = 2
+        state["iron"] = 1
         state["relics"] = 1
 
         apply_action(state, "craft_grave_pike")
 
         self.assertTrue(state["gear"]["grave_pike"])
         self.assertEqual(state["scrap"], 0)
+        self.assertEqual(state["iron"], 0)
         self.assertEqual(state["relics"], 0)
 
         state["location"] = "forest"
@@ -325,6 +327,46 @@ class GameStateTests(unittest.TestCase):
         labels = dict(stats(state, "en"))
 
         self.assertIn("Rare Grave Pike", labels["Gear"])
+
+    def test_forge_loot_path_awards_weapon_materials(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["seed"] = 5151
+        state["run"]["depth"] = 1
+        state["run"]["ruin_path"] = ["forge"]
+        state["run"]["ruin_branches"] = [("camp", "lair"), ("vault", "sanctuary")]
+
+        apply_action(state, "loot_ruin")
+
+        self.assertGreaterEqual(state["iron"], 1)
+
+    def test_sanctuary_rest_path_awards_sigils_and_reduces_threat(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["seed"] = 6161
+        state["run"]["depth"] = 1
+        state["run"]["threat"] = 3
+        state["run"]["ruin_path"] = ["sanctuary"]
+        state["run"]["ruin_branches"] = [("forge", "vault"), ("camp", "lair")]
+
+        apply_action(state, "camp_ruin")
+
+        self.assertEqual(state["run"]["threat"], 2)
+        self.assertEqual(state["sigils"], 1)
+
+    def test_rare_weapon_requires_weapon_materials_to_appear_in_actions(self) -> None:
+        state = new_game_state()
+        state["scrap"] = 2
+        state["relics"] = 1
+
+        action_keys = {item["key"] for item in available_actions(state)}
+        self.assertNotIn("craft_grave_pike", action_keys)
+
+        state["iron"] = 1
+        action_keys = {item["key"] for item in available_actions(state)}
+        self.assertIn("craft_grave_pike", action_keys)
 
 
 if __name__ == "__main__":

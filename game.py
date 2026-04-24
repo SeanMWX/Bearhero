@@ -202,7 +202,7 @@ EQUIPMENT_DEFS = {
         "rarity": "rare",
         "craft_action": "craft_grave_pike",
         "craft_room": "hut",
-        "cost": {"scrap": 3, "relics": 1},
+        "cost": {"scrap": 2, "iron": 1, "relics": 1},
         "message_key": "craft_grave_pike",
         "bonuses": {"attack": 2},
     },
@@ -211,7 +211,7 @@ EQUIPMENT_DEFS = {
         "rarity": "relic",
         "craft_action": "craft_saint_wrap",
         "craft_room": "hut",
-        "cost": {"herbs": 2, "relics": 1},
+        "cost": {"herbs": 1, "sigils": 1, "relics": 1},
         "message_key": "craft_saint_wrap",
         "bonuses": {"defense": 1, "loot": 1},
     },
@@ -277,7 +277,7 @@ RUIN_CHAMBERS = {
             "zh": "这里只偏爱那些肯把手伸进灰里的拾荒者。",
         },
         "action": "loot_ruin",
-        "reward_table": {"scrap": (2, 3), "relics": (0, 1)},
+        "reward_table": {"scrap": (2, 3), "iron": (1, 2), "relics": (0, 1)},
         "message_key": "loot_ruin",
     },
     "lair": {
@@ -307,6 +307,7 @@ RUIN_CHAMBERS = {
             "zh": "如果你想在下层之前换一口稳气，这里正适合停一下。",
         },
         "action": "camp_ruin",
+        "reward_table": {"sigils": (1, 1)},
         "message_key": "camp_ruin",
     },
     "vault": {
@@ -321,7 +322,7 @@ RUIN_CHAMBERS = {
             "zh": "这种房间足以改变一局，只要你能把东西带着活着出去。",
         },
         "action": "loot_ruin",
-        "reward_table": {"scrap": (1, 2), "relics": (1, 2)},
+        "reward_table": {"scrap": (1, 2), "iron": (1, 1), "relics": (1, 2)},
         "message_key": "loot_ruin",
     },
 }
@@ -535,6 +536,8 @@ DEFAULT_STATE = {
     "wood": 2,
     "scrap": 0,
     "herbs": 0,
+    "iron": 0,
+    "sigils": 0,
     "relics": 0,
     "health": 10,
     "max_health": 10,
@@ -987,6 +990,9 @@ def apply_action(state: dict, action: str) -> dict:
         elif action == "camp_ruin":
             state["health"] = min(state["health"] + 2, state["max_health"])
             state["run"]["threat"] = max(state["run"]["threat"] - 1, 1)
+            reward = resolve_chamber_reward(state, chamber)
+            for resource, amount in reward.items():
+                state[resource] += amount
             add_log(state, chamber["message_key"])
         elif action == "fight_ruin":
             add_log(state, chamber["message_key"])
@@ -1103,6 +1109,8 @@ def stats(state: dict, lang: str = "en") -> list[tuple[str, int | str]]:
         (text({"en": "Wood", "zh": "木材"}, lang), state["wood"]),
         (text({"en": "Scrap", "zh": "废料"}, lang), state["scrap"]),
         (text({"en": "Herbs", "zh": "草药"}, lang), state["herbs"]),
+        (text({"en": "Iron", "zh": "铁材"}, lang), state["iron"]),
+        (text({"en": "Sigils", "zh": "印记"}, lang), state["sigils"]),
         (text({"en": "Relics", "zh": "遗物"}, lang), state["relics"]),
         (text({"en": "Threat", "zh": "威胁"}, lang), state["run"]["threat"]),
         (text({"en": "Gear", "zh": "装备"}, lang), ", ".join(gear_names) or text({"en": "None", "zh": "无"}, lang)),
