@@ -1,7 +1,7 @@
 import unittest
 import random
 
-from game import apply_action, available_actions, build_ruin_route, current_room, enemy_name, new_game_state, present_log, render_map_html
+from game import apply_action, available_actions, build_ruin_branches, build_ruin_route, current_room, enemy_name, new_game_state, present_log, render_map_html
 
 
 class GameStateTests(unittest.TestCase):
@@ -173,16 +173,21 @@ class GameStateTests(unittest.TestCase):
         state = new_game_state()
         state["location"] = "ruin"
         state["flags"]["gate_open"] = True
-        state["run"]["ruin_route"] = ["storehouse", "camp", "lair"]
+        state["run"]["ruin_path"] = ["storehouse"]
+        state["run"]["ruin_branches"] = [("camp", "forge"), ("lair", "sanctuary")]
 
         actions = {item["key"] for item in available_actions(state)}
         self.assertIn("loot_ruin", actions)
-        self.assertIn("descend_ruin", actions)
+        self.assertNotIn("descend_left", actions)
 
         apply_action(state, "loot_ruin")
         self.assertIn(1, state["run"]["cleared_depths"])
 
-        apply_action(state, "descend_ruin")
+        actions = {item["key"] for item in available_actions(state)}
+        self.assertIn("descend_left", actions)
+        self.assertIn("descend_right", actions)
+
+        apply_action(state, "descend_left")
         self.assertEqual(state["run"]["depth"], 2)
         self.assertEqual(state["run"]["threat"], 2)
         self.assertEqual(current_room(state, "en")["name"], "Ash Camp 2")
@@ -193,7 +198,8 @@ class GameStateTests(unittest.TestCase):
         state["flags"]["gate_open"] = True
         state["run"]["depth"] = 3
         state["run"]["threat"] = 3
-        state["run"]["ruin_route"] = ["storehouse", "camp", "lair"]
+        state["run"]["ruin_path"] = ["storehouse", "camp", "lair"]
+        state["run"]["ruin_branches"] = [("camp", "forge"), ("lair", "sanctuary")]
 
         apply_action(state, "fight_ruin")
 
@@ -224,6 +230,27 @@ class GameStateTests(unittest.TestCase):
 
         self.assertEqual(state_a["scrap"], state_b["scrap"])
         self.assertEqual(state_a["herbs"], state_b["herbs"])
+
+    def test_ruin_branch_generation_offers_two_distinct_choices(self) -> None:
+        branches = build_ruin_branches(1337)
+
+        self.assertEqual(len(branches["choices"]), 2)
+        for left, right in branches["choices"]:
+            self.assertNotEqual(left, right)
+
+    def test_descend_right_updates_selected_branch_path(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["ruin_path"] = ["storehouse"]
+        state["run"]["ruin_branches"] = [("camp", "forge"), ("lair", "sanctuary")]
+        state["run"]["cleared_depths"] = [1]
+
+        apply_action(state, "descend_right")
+
+        self.assertEqual(state["run"]["depth"], 2)
+        self.assertEqual(state["run"]["ruin_path"], ["storehouse", "forge"])
+        self.assertEqual(current_room(state, "en")["name"], "Old Forge 2")
 
 
 if __name__ == "__main__":

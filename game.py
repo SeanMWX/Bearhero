@@ -145,7 +145,8 @@ ACTION_LABELS = {
     "search_well": {"en": "Search the well stones", "zh": "翻找井沿石缝"},
     "open_gate": {"en": "Force the rusted gate", "zh": "强闯锈门"},
     "move:ruin": {"en": "Enter the broken hall", "zh": "进入破厅"},
-    "descend_ruin": {"en": "Descend deeper", "zh": "继续深入"},
+    "descend_left": {"en": "Take the left passage", "zh": "走左侧通道"},
+    "descend_right": {"en": "Take the right passage", "zh": "走右侧通道"},
     "loot_ruin": {"en": "Search the chamber", "zh": "搜索房间"},
     "camp_ruin": {"en": "Catch your breath", "zh": "停下喘息"},
     "fight_ruin": {"en": "Challenge the shadow", "zh": "迎战阴影"},
@@ -509,9 +510,13 @@ def new_game_state() -> dict:
         "seed": seed,
         "depth": ROGUELIKE_RUN_CONFIG["starting_depth"],
         "threat": 1,
-        "ruin_route": build_ruin_route(seed),
+        "ruin_path": [],
+        "ruin_branches": [],
         "cleared_depths": [],
     }
+    branches = build_ruin_branches(seed)
+    state["run"]["ruin_path"] = [branches["start"]]
+    state["run"]["ruin_branches"] = branches["choices"]
     return state
 
 
@@ -553,17 +558,28 @@ def crafted_equipment_actions(state: dict, lang: str) -> list[dict]:
 
 
 def build_ruin_route(seed: int) -> list[str]:
+    branches = build_ruin_branches(seed)
+    return [branches["start"], *[pair[0] for pair in branches["choices"]]]
+
+
+def build_ruin_branches(seed: int) -> dict[str, object]:
     chamber_ids = sorted(RUIN_CHAMBERS)
     rng = random.Random(seed)
-    route = []
-    for _ in range(ROGUELIKE_RUN_CONFIG["depth_goal"]):
-        choices = [chamber_id for chamber_id in chamber_ids if not route or chamber_id != route[-1]]
-        route.append(rng.choice(choices))
-    return route
+    start = rng.choice(chamber_ids)
+    choices: list[tuple[str, str]] = []
+    previous = start
+    for _ in range(ROGUELIKE_RUN_CONFIG["depth_goal"] - 1):
+        pool = [chamber_id for chamber_id in chamber_ids if chamber_id != previous]
+        left = rng.choice(pool)
+        right_pool = [chamber_id for chamber_id in pool if chamber_id != left] or pool
+        right = rng.choice(right_pool)
+        choices.append((left, right))
+        previous = left
+    return {"start": start, "choices": choices}
 
 
 def current_ruin_chamber(state: dict) -> dict:
-    chamber_id = state["run"]["ruin_route"][state["run"]["depth"] - 1]
+    chamber_id = state["run"]["ruin_path"][state["run"]["depth"] - 1]
     return RUIN_CHAMBERS[chamber_id]
 
 
@@ -723,8 +739,9 @@ def available_actions(state: dict, lang: str = "en") -> list[dict]:
         cleared = current_depth in state["run"]["cleared_depths"]
         if not cleared:
             actions.append(localize_action(chamber["action"], chamber["action"], lang))
-        if current_depth < ROGUELIKE_RUN_CONFIG["depth_goal"]:
-            actions.append(localize_action("descend_ruin", "descend_ruin", lang))
+        if cleared and current_depth < ROGUELIKE_RUN_CONFIG["depth_goal"]:
+            actions.append(localize_action("descend_left", "descend_left", lang))
+            actions.append(localize_action("descend_right", "descend_right", lang))
         elif not state["flags"]["won"]:
             actions.append(localize_action("claim_banner", "claim_banner", lang))
         actions.append(localize_action("move:gate", "move:gate:return", lang))
@@ -866,8 +883,15 @@ def apply_action(state: dict, action: str) -> dict:
         state["flags"]["won"] = True
         add_log(state, "claim_banner")
 
-    elif action == "descend_ruin":
+    elif action in {"descend_left", "descend_right"}:
+        branch_pair = state["run"]["ruin_branches"][state["run"]["depth"] - 1]
+        branch_index = 0 if action == "descend_left" else 1
         state["run"]["depth"] = min(state["run"]["depth"] + 1, ROGUELIKE_RUN_CONFIG["depth_goal"])
+        next_chamber = branch_pair[branch_index]
+        if len(state["run"]["ruin_path"]) < state["run"]["depth"]:
+            state["run"]["ruin_path"].append(next_chamber)
+        else:
+            state["run"]["ruin_path"][state["run"]["depth"] - 1] = next_chamber
         state["run"]["threat"] += ROGUELIKE_RUN_CONFIG["threat_per_day"]
         add_log(state, "descend_ruin")
 
