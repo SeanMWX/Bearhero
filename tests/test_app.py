@@ -12,30 +12,31 @@ class AppRouteTests(unittest.TestCase):
         app.config.update(TESTING=True)
         self.client = app.test_client()
 
-    def test_index_renders_core_sections(self) -> None:
+    def test_index_embeds_initial_state_and_script(self) -> None:
         response = self.client.get("/")
 
         self.assertEqual(response.status_code, 200)
         page = response.get_data(as_text=True)
-        self.assertIn("Beahero", page)
-        self.assertIn("Actions", page)
-        self.assertIn("Map", page)
+        self.assertIn("window.BEAHERO_INITIAL_STATE", page)
+        self.assertIn("static/app.js", page)
 
-    def test_action_route_updates_session_state(self) -> None:
+    def test_api_action_updates_state_without_redirect(self) -> None:
         self.client.get("/")
-        response = self.client.post("/action", data={"action": "move:path"}, follow_redirects=True)
+        response = self.client.post("/api/action", json={"action": "move:path"})
 
         self.assertEqual(response.status_code, 200)
-        page = response.get_data(as_text=True)
-        self.assertIn("A narrow path cut into dead grass", page)
+        payload = response.get_json()
+        self.assertEqual(payload["room"]["name"], "Old Path")
+        self.assertIn("move:forest", {item["key"] for item in payload["actions"]})
 
-    def test_restart_route_resets_progress(self) -> None:
+    def test_api_restart_resets_progress(self) -> None:
         self.client.get("/")
-        self.client.post("/action", data={"action": "move:path"}, follow_redirects=True)
-        response = self.client.post("/restart", follow_redirects=True)
+        self.client.post("/api/action", json={"action": "move:path"})
+        response = self.client.post("/api/restart")
 
-        page = response.get_data(as_text=True)
-        self.assertIn("A dark hut with a weak ember", page)
+        payload = response.get_json()
+        self.assertEqual(payload["room"]["name"], "Dark Hut")
+        self.assertEqual(payload["stats"][0]["value"], "1")
 
 
 if __name__ == "__main__":

@@ -49,9 +49,16 @@ body {
   gap: 24px;
 }
 
+.hero-actions {
+  display: grid;
+  gap: 12px;
+  justify-items: end;
+}
+
 .eyebrow,
 .hint,
-.legend {
+.legend,
+.status-note {
   color: var(--muted);
 }
 
@@ -131,6 +138,12 @@ button.ghost {
   background: transparent;
 }
 
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
 .win {
   margin-top: 18px;
   padding: 12px;
@@ -147,5 +160,9 @@ button.ghost {
 
   .hero {
     gap: 16px;
+  }
+
+  .hero-actions {
+    justify-items: start;
   }
 }
