@@ -1,0 +1,151 @@
+:root {
+  --bg: #111111;
+  --panel: #191919;
+  --line: #2d2d2d;
+  --text: #f4eedf;
+  --muted: #c2b89e;
+  --accent: #e39b44;
+  --accent-soft: rgba(227, 155, 68, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top, rgba(227, 155, 68, 0.18), transparent 30%),
+    linear-gradient(180deg, #17120f 0%, var(--bg) 45%, #0b0b0b 100%);
+  color: var(--text);
+  font-family: "Georgia", "Times New Roman", serif;
+}
+
+.shell {
+  width: min(1080px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 32px 0 48px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  margin-top: 18px;
+}
+
+.panel {
+  border: 1px solid var(--line);
+  background: rgba(25, 25, 25, 0.9);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.28);
+  padding: 20px;
+}
+
+.hero {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.eyebrow,
+.hint,
+.legend {
+  color: var(--muted);
+}
+
+h1,
+h2,
+p,
+ul {
+  margin-top: 0;
+}
+
+h1,
+h2 {
+  font-weight: 400;
+}
+
+.lede {
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.map {
+  overflow-x: auto;
+  padding: 14px;
+  border: 1px solid var(--line);
+  background: #121212;
+  color: var(--accent);
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
+.stats,
+.log {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stats li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.log li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+button {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid rgba(227, 155, 68, 0.45);
+  background: var(--accent-soft);
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+button:hover {
+  background: rgba(227, 155, 68, 0.22);
+  transform: translateY(-1px);
+}
+
+button.ghost {
+  width: auto;
+  min-width: 120px;
+  background: transparent;
+}
+
+.win {
+  margin-top: 18px;
+  padding: 12px;
+  border-left: 3px solid var(--accent);
+  background: rgba(227, 155, 68, 0.08);
+}
+
+@media (max-width: 760px) {
+  .hero,
+  .grid {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .hero {
+    gap: 16px;
+  }
+}

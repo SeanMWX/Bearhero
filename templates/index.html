@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Beahero</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel hero">
+        <div>
+          <p class="eyebrow">Beahero</p>
+          <h1>{{ room.title }}</h1>
+          <p class="lede">{{ room.description }}</p>
+          <p class="hint">{{ room.action_text }}</p>
+        </div>
+        <form method="post" action="{{ url_for('restart') }}">
+          <button class="ghost" type="submit">Restart</button>
+        </form>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>Map</h2>
+          <pre class="map">{{ map_text }}</pre>
+          <p class="legend">`X` is your current location. `O` marks places you have visited.</p>
+        </article>
+
+        <article class="panel">
+          <h2>Status</h2>
+          <ul class="stats">
+            {% for label, value in stats %}
+            <li><span>{{ label }}</span><strong>{{ value }}</strong></li>
+            {% endfor %}
+          </ul>
+          {% if won %}
+          <p class="win">You brought something back from the dark. That is enough for day one.</p>
+          {% endif %}
+        </article>
+      </section>
+
+      <section class="grid">
+        <article class="panel">
+          <h2>{% if won %}Aftermath{% else %}Actions{% endif %}</h2>
+          <div class="actions">
+            {% for item in actions %}
+            <form method="post" action="{{ url_for('action') }}">
+              <input type="hidden" name="action" value="{{ item.key }}">
+              <button type="submit">{{ item.label }}</button>
+            </form>
+            {% endfor %}
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Log</h2>
+          <ul class="log">
+            {% for line in log|reverse %}
+            <li>{{ line }}</li>
+            {% endfor %}
+          </ul>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>
