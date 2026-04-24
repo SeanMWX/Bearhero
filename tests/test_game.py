@@ -1,4 +1,5 @@
 import unittest
+import random
 
 from game import apply_action, available_actions, enemy_name, new_game_state, present_log, render_map_html
 
@@ -146,6 +147,27 @@ class GameStateTests(unittest.TestCase):
         self.assertIn("Forest", english_map)
         self.assertIn("林缘", chinese_map)
         self.assertNotIn("Forest", chinese_map)
+
+    def test_randomized_available_actions_preserve_core_invariants(self) -> None:
+        random.seed(0)
+
+        for _ in range(100):
+            state = new_game_state()
+            for _ in range(25):
+                action = random.choice(available_actions(state))["key"]
+                apply_action(state, action)
+
+                self.assertGreaterEqual(state["fire"], 0)
+                self.assertGreaterEqual(state["wood"], 0)
+                self.assertGreaterEqual(state["scrap"], 0)
+                self.assertGreaterEqual(state["herbs"], 0)
+                self.assertGreaterEqual(state["health"], 0)
+
+                if state["flags"]["won"]:
+                    self.assertEqual(state["location"], "ruin")
+
+                if state["flags"]["gate_open"]:
+                    self.assertIn("gate", state["visited"])
 
 
 if __name__ == "__main__":

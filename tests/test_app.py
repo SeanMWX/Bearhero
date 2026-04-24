@@ -49,6 +49,37 @@ class AppRouteTests(unittest.TestCase):
         self.assertEqual(payload["room"]["name"], "黑屋")
         self.assertEqual(payload["actions"][0]["label"], "添火")
 
+    def test_api_action_rejects_missing_action_payload(self) -> None:
+        self.client.get("/")
+
+        json_response = self.client.post("/api/action", json={})
+        form_response = self.client.post("/api/action", data={})
+
+        self.assertEqual(json_response.status_code, 400)
+        self.assertEqual(form_response.status_code, 400)
+
+    def test_api_action_unknown_action_is_a_no_op(self) -> None:
+        self.client.get("/")
+        before = self.client.get("/api/state").get_json()
+
+        response = self.client.post("/api/action", json={"action": "unknown:action"})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["won"], before["won"])
+        self.assertEqual(payload["stats"], before["stats"])
+        self.assertEqual(payload["room"], before["room"])
+
+    def test_api_lang_defaults_to_english_when_missing(self) -> None:
+        self.client.get("/")
+
+        response = self.client.post("/api/lang", json={})
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.get_json()
+        self.assertEqual(payload["ui"]["lang"], "en")
+        self.assertEqual(payload["room"]["name"], "Dark Hut")
+
 
 if __name__ == "__main__":
     unittest.main()
