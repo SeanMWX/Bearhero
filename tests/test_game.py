@@ -1,6 +1,7 @@
 import unittest
+import random
 
-from game import apply_action, available_actions, new_game_state
+from game import apply_action, available_actions, build_ruin_branches, build_ruin_route, current_room, enemy_name, goal_text, new_game_state, present_log, render_map_html, stats
 
 
 class GameStateTests(unittest.TestCase):
@@ -24,11 +25,13 @@ class GameStateTests(unittest.TestCase):
         state = new_game_state()
         state["location"] = "forest"
         state["fire"] = 1
+        initial_log = list(state["log"])
 
         apply_action(state, "move:gate")
 
+        self.assertNotIn("move:gate", {item["key"] for item in available_actions(state)})
         self.assertEqual(state["location"], "forest")
-        self.assertIn("too deep", state["log"][-1])
+        self.assertEqual(state["log"], initial_log)
 
     def test_beast_encounter_can_be_won(self) -> None:
         state = new_game_state()
@@ -63,7 +66,7 @@ class GameStateTests(unittest.TestCase):
         apply_action(state, "open_gate")
 
         self.assertIsNotNone(state["encounter"])
-        self.assertEqual(state["encounter"]["name"], "Gate Warden")
+        self.assertEqual(enemy_name(state["encounter"], "en"), "Gate Warden")
         self.assertEqual(state["scrap"], 0)
 
     def test_player_can_die_in_combat(self) -> None:
@@ -112,6 +115,292 @@ class GameStateTests(unittest.TestCase):
         self.assertEqual(restarted["location"], "hut")
         self.assertEqual(restarted["health"], 10)
         self.assertFalse(restarted["flags"]["game_over"])
+
+    def test_actions_and_logs_can_be_localized_to_chinese(self) -> None:
+        state = new_game_state()
+        apply_action(state, "move:path")
+
+        action_labels = {item["label"] for item in available_actions(state, "zh")}
+        log_lines = present_log(state, "zh")
+
+        self.assertIn("前往林缘", action_labels)
+        self.assertTrue(any("旧径" in line for line in log_lines))
+
+    def test_invalid_action_cannot_bypass_resource_or_progress_rules(self) -> None:
+        state = new_game_state()
+
+        apply_action(state, "craft_spear")
+        apply_action(state, "open_gate")
+        apply_action(state, "claim_banner")
+
+        self.assertEqual(state["scrap"], 0)
+        self.assertFalse(state["gear"]["spear"])
+        self.assertIsNone(state["encounter"])
+        self.assertFalse(state["flags"]["won"])
+
+    def test_map_html_is_localized_with_language(self) -> None:
+        state = new_game_state()
+
+        english_map = render_map_html(state, "en")
+        chinese_map = render_map_html(state, "zh")
+
+        self.assertIn("Forest", english_map)
+        self.assertIn("林缘", chinese_map)
+        self.assertNotIn("Forest", chinese_map)
+
+    def test_randomized_available_actions_preserve_core_invariants(self) -> None:
+        random.seed(0)
+
+        for _ in range(100):
+            state = new_game_state()
+            for _ in range(25):
+                action = random.choice(available_actions(state))["key"]
+                apply_action(state, action)
+
+                self.assertGreaterEqual(state["fire"], 0)
+                self.assertGreaterEqual(state["wood"], 0)
+                self.assertGreaterEqual(state["scrap"], 0)
+                self.assertGreaterEqual(state["herbs"], 0)
+                self.assertGreaterEqual(state["relics"], 0)
+                self.assertGreaterEqual(state["health"], 0)
+
+                if state["flags"]["won"]:
+                    self.assertEqual(state["location"], "ruin")
+
+                if state["flags"]["gate_open"]:
+                    self.assertIn("gate", state["visited"])
+
+    def test_ruin_depth_progression_uses_run_state(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["ruin_path"] = ["storehouse"]
+        state["run"]["ruin_branches"] = [("camp", "forge"), ("lair", "sanctuary")]
+
+        actions = {item["key"] for item in available_actions(state)}
+        self.assertIn("loot_ruin", actions)
+        self.assertNotIn("descend_left", actions)
+
+        apply_action(state, "loot_ruin")
+        self.assertIn(1, state["run"]["cleared_depths"])
+
+        actions = {item["key"] for item in available_actions(state)}
+        self.assertIn("descend_left", actions)
+        self.assertIn("descend_right", actions)
+
+        apply_action(state, "descend_left")
+        self.assertEqual(state["run"]["depth"], 2)
+        self.assertEqual(state["run"]["threat"], 2)
+        self.assertEqual(current_room(state, "en")["name"], "Ash Camp 2")
+
+    def test_ruin_fight_action_starts_scaled_encounter(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["depth"] = 3
+        state["run"]["threat"] = 3
+        state["run"]["ruin_path"] = ["storehouse", "camp", "lair"]
+        state["run"]["ruin_branches"] = [("camp", "forge"), ("lair", "sanctuary")]
+
+        apply_action(state, "fight_ruin")
+
+        self.assertIsNotNone(state["encounter"])
+        self.assertEqual(state["encounter"]["id"], "beast")
+        self.assertEqual(state["encounter"]["hp"], 7)
+
+    def test_ruin_route_generation_avoids_adjacent_duplicates(self) -> None:
+        route = build_ruin_route(1337)
+
+        self.assertEqual(len(route), 3)
+        for left, right in zip(route, route[1:]):
+            self.assertNotEqual(left, right)
+
+    def test_ruin_loot_rewards_are_deterministic_for_seed_and_depth(self) -> None:
+        state_a = new_game_state()
+        state_b = new_game_state()
+
+        for state in (state_a, state_b):
+            state["location"] = "ruin"
+            state["flags"]["gate_open"] = True
+            state["run"]["seed"] = 4242
+            state["run"]["depth"] = 1
+            state["run"]["ruin_path"] = ["forge"]
+            state["run"]["ruin_branches"] = [("camp", "lair"), ("sanctuary", "storehouse")]
+
+        apply_action(state_a, "loot_ruin")
+        apply_action(state_b, "loot_ruin")
+
+        self.assertEqual(state_a["scrap"], state_b["scrap"])
+        self.assertEqual(state_a["herbs"], state_b["herbs"])
+
+    def test_ruin_branch_generation_offers_two_distinct_choices(self) -> None:
+        branches = build_ruin_branches(1337)
+
+        self.assertEqual(len(branches["choices"]), 2)
+        for left, right in branches["choices"]:
+            self.assertNotEqual(left, right)
+
+    def test_descend_right_updates_selected_branch_path(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["ruin_path"] = ["storehouse"]
+        state["run"]["ruin_branches"] = [("camp", "forge"), ("lair", "sanctuary")]
+        state["run"]["cleared_depths"] = [1]
+
+        apply_action(state, "descend_right")
+
+        self.assertEqual(state["run"]["depth"], 2)
+        self.assertEqual(state["run"]["ruin_path"], ["storehouse", "forge"])
+        self.assertEqual(current_room(state, "en")["name"], "Old Forge 2")
+
+    def test_ruin_branch_actions_include_preview_labels_in_english(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["ruin_path"] = ["storehouse"]
+        state["run"]["ruin_branches"] = [("camp", "lair"), ("forge", "sanctuary")]
+        state["run"]["cleared_depths"] = [1]
+
+        actions = {item["key"]: item["label"] for item in available_actions(state, "en")}
+
+        self.assertIn("Ash Camp", actions["descend_left"])
+        self.assertIn("rest", actions["descend_left"])
+        self.assertIn("Shadow Lair", actions["descend_right"])
+        self.assertIn("fight", actions["descend_right"])
+
+    def test_ruin_branch_actions_include_preview_labels_in_chinese(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["ruin_path"] = ["storehouse"]
+        state["run"]["ruin_branches"] = [("forge", "sanctuary"), ("camp", "lair")]
+        state["run"]["cleared_depths"] = [1]
+
+        actions = {item["key"]: item["label"] for item in available_actions(state, "zh")}
+
+        self.assertIn("旧熔炉", actions["descend_left"])
+        self.assertIn("搜刮", actions["descend_left"])
+        self.assertIn("寂静祠堂", actions["descend_right"])
+        self.assertIn("休整", actions["descend_right"])
+
+    def test_vault_loot_can_award_relics_deterministically(self) -> None:
+        state_a = new_game_state()
+        state_b = new_game_state()
+
+        for state in (state_a, state_b):
+            state["location"] = "ruin"
+            state["flags"]["gate_open"] = True
+            state["run"]["seed"] = 9090
+            state["run"]["depth"] = 1
+            state["run"]["ruin_path"] = ["vault"]
+            state["run"]["ruin_branches"] = [("camp", "lair"), ("forge", "sanctuary")]
+
+        apply_action(state_a, "loot_ruin")
+        apply_action(state_b, "loot_ruin")
+
+        self.assertGreaterEqual(state_a["relics"], 1)
+        self.assertEqual(state_a["relics"], state_b["relics"])
+
+    def test_rare_equipment_can_be_crafted_and_changes_attack_profile(self) -> None:
+        state = new_game_state()
+        state["scrap"] = 2
+        state["iron"] = 1
+        state["relics"] = 1
+
+        apply_action(state, "craft_grave_pike")
+
+        self.assertTrue(state["gear"]["grave_pike"])
+        self.assertEqual(state["scrap"], 0)
+        self.assertEqual(state["iron"], 0)
+        self.assertEqual(state["relics"], 0)
+
+        state["location"] = "forest"
+        apply_action(state, "hunt_noise")
+        apply_action(state, "attack")
+
+        self.assertEqual(state["encounter"]["hp"], 1)
+
+    def test_stats_show_rarity_for_non_common_gear(self) -> None:
+        state = new_game_state()
+        state["gear"]["grave_pike"] = True
+        labels = dict(stats(state, "en"))
+
+        self.assertIn("Rare Grave Pike", labels["Gear"])
+
+    def test_goal_text_advances_with_mainline_progress(self) -> None:
+        state = new_game_state()
+        self.assertIn("force the gate", goal_text(state, "en"))
+
+        state["flags"]["gate_open"] = True
+        self.assertIn("Descend into the ruin", goal_text(state, "en"))
+
+        state["location"] = "ruin"
+        state["run"]["depth"] = 3
+        self.assertIn("Claim the banner", goal_text(state, "en"))
+
+        state["flags"]["won"] = True
+        self.assertIn("Bring the banner back", goal_text(state, "en"))
+
+    def test_returning_banner_to_hut_finishes_the_run(self) -> None:
+        state = new_game_state()
+        state["flags"]["won"] = True
+        state["location"] = "path"
+
+        apply_action(state, "move:hut")
+
+        self.assertTrue(state["flags"]["ended"])
+        self.assertEqual(available_actions(state)[0]["key"], "restart")
+
+    def test_saint_route_can_produce_saint_ending(self) -> None:
+        state = new_game_state()
+        state["flags"]["won"] = True
+        state["gear"]["saint_wrap"] = True
+        state["location"] = "path"
+
+        apply_action(state, "move:hut")
+
+        self.assertTrue(any("quiet grace" in line for line in present_log(state, "en")))
+
+    def test_forge_loot_path_awards_weapon_materials(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["seed"] = 5151
+        state["run"]["depth"] = 1
+        state["run"]["ruin_path"] = ["forge"]
+        state["run"]["ruin_branches"] = [("camp", "lair"), ("vault", "sanctuary")]
+
+        apply_action(state, "loot_ruin")
+
+        self.assertGreaterEqual(state["iron"], 1)
+
+    def test_sanctuary_rest_path_awards_sigils_and_reduces_threat(self) -> None:
+        state = new_game_state()
+        state["location"] = "ruin"
+        state["flags"]["gate_open"] = True
+        state["run"]["seed"] = 6161
+        state["run"]["depth"] = 1
+        state["run"]["threat"] = 3
+        state["run"]["ruin_path"] = ["sanctuary"]
+        state["run"]["ruin_branches"] = [("forge", "vault"), ("camp", "lair")]
+
+        apply_action(state, "camp_ruin")
+
+        self.assertEqual(state["run"]["threat"], 2)
+        self.assertEqual(state["sigils"], 1)
+
+    def test_rare_weapon_requires_weapon_materials_to_appear_in_actions(self) -> None:
+        state = new_game_state()
+        state["scrap"] = 2
+        state["relics"] = 1
+
+        action_keys = {item["key"] for item in available_actions(state)}
+        self.assertNotIn("craft_grave_pike", action_keys)
+
+        state["iron"] = 1
+        action_keys = {item["key"] for item in available_actions(state)}
+        self.assertIn("craft_grave_pike", action_keys)
 
 
 if __name__ == "__main__":

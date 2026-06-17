@@ -49,9 +49,21 @@ body {
   gap: 24px;
 }
 
+.hero-actions {
+  display: grid;
+  gap: 12px;
+  justify-items: end;
+}
+
+.lang-switcher {
+  display: flex;
+  gap: 8px;
+}
+
 .eyebrow,
 .hint,
-.legend {
+.legend,
+.status-note {
   color: var(--muted);
 }
 
@@ -80,6 +92,17 @@ h2 {
   color: var(--accent);
   font-size: 0.95rem;
   line-height: 1.25;
+  white-space: pre-wrap;
+}
+
+.map-marker-x {
+  color: #e25555;
+  font-weight: 700;
+}
+
+.map-marker-o {
+  color: #5aa7ff;
+  font-weight: 700;
 }
 
 .stats,
@@ -131,6 +154,22 @@ button.ghost {
   background: transparent;
 }
 
+.lang-switcher button {
+  min-width: 72px;
+  text-align: center;
+}
+
+.lang-switcher button.active {
+  background: rgba(227, 155, 68, 0.22);
+  border-color: rgba(227, 155, 68, 0.75);
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+  transform: none;
+}
+
 .win {
   margin-top: 18px;
   padding: 12px;
@@ -147,5 +186,9 @@ button.ghost {
 
   .hero {
     gap: 16px;
+  }
+
+  .hero-actions {
+    justify-items: start;
   }
 }
